@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NalaKu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "recharts": "https://esm.sh/recharts@^2.12.7"
+  }
+}
+</script>
+<style>
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.toast-item.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.toast-item.fade-out {
+  animation: fadeOut 0.3s ease-in forwards;
+}
+
+@media print {
+  body {
+    background-color: white !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+    margin: 0;
+  }
+  .printable-area *, .printable-area h1, .printable-area h2, .printable-area p, .printable-area span, .printable-area th, .printable-area td {
+    color: black !important;
+    background-color: transparent !important;
+  }
+  .no-print, .no-print * {
+    visibility: hidden !important;
+    display: none !important;
+  }
+}
+</style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
