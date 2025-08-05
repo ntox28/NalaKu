@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Customer, Bahan, Order, OrderItem, ProductionStatus, supabase } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
+import { Customer, Bahan, Order, OrderItem, ProductionStatus, supabase, User as AuthUser } from '../../lib/supabaseClient';
 import ChevronDownIcon from '../icons/ChevronDownIcon';
 import Pagination from '../Pagination';
 import FilterBar from '../FilterBar';

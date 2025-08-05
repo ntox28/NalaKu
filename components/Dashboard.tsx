@@ -12,9 +12,8 @@ import CustomersIcon from './icons/CustomersIcon';
 import EmployeesIcon from './icons/EmployeesIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import LogoutIcon from './icons/LogoutIcon';
-import { Customer, Bahan, Order, Employee, Expense } from '../lib/supabaseClient';
+import { Customer, Bahan, Order, Employee, Expense, User as AuthUser } from '../lib/supabaseClient';
 import ThemeToggle from './ThemeToggle';
-import { User as AuthUser } from '@supabase/supabase-js';
 
 interface DashboardProps {
   user: AuthUser;
@@ -31,11 +30,11 @@ interface DashboardProps {
 const allMenuItems = [
   { name: 'Dashboard', icon: DashboardIcon, roles: ['Admin', 'Kasir', 'Produksi', 'Office'] },
   { name: 'Keuangan', icon: FinanceIcon, roles: ['Admin'] },
-  { name: 'Order', icon: OrderIcon, roles: ['Admin', 'Kasir', 'Office'] },
+  { name: 'Order', icon: OrderIcon, roles: ['Admin', 'Kasir', 'Office', 'Designer'] },
   { name: 'Produksi', icon: ProductionIcon, roles: ['Admin', 'Kasir', 'Produksi', 'Office'] },
   { name: 'Transaksi', icon: TransactionIcon, roles: ['Admin', 'Kasir'] },
   { name: 'Pengeluaran', icon: ExpenseIcon, roles: ['Admin', 'Kasir'] },
-  { name: 'Daftar Bahan', icon: IngredientsIcon, roles: ['Admin', 'Kasir'] },
+  { name: 'Daftar Bahan', icon: IngredientsIcon, roles: ['Admin', 'Kasir', 'Office'] },
   { name: 'Daftar Pelanggan', icon: CustomersIcon, roles: ['Admin', 'Kasir'] },
   { name: 'Daftar Karyawan', icon: EmployeesIcon, roles: ['Admin'] },
   { name: 'Pengaturan', icon: SettingsIcon, roles: ['Admin'] },

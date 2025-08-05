@@ -3,13 +3,12 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PrintIcon from '../icons/PrintIcon';
-import { Customer, CustomerLevel, Bahan, Order, OrderItem, supabase } from '../../lib/supabaseClient';
+import { Customer, CustomerLevel, Bahan, Order, OrderItem, supabase, User as AuthUser } from '../../lib/supabaseClient';
 import ChevronDownIcon from '../icons/ChevronDownIcon';
 import Pagination from '../Pagination';
 import FilterBar from '../FilterBar';
 import { useToast } from '../../hooks/useToast';
 import SPK from './SPK';
-import { User as AuthUser } from '@supabase/supabase-js';
 import PlayCircleIcon from '../icons/PlayCircleIcon';
 
 type LocalOrderItem = Omit<OrderItem, 'id' | 'created_at' | 'order_id'> & { local_id: number };

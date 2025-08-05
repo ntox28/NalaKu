@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Session, User as AuthUser } from '@supabase/supabase-js';
 import LoginComponent from './components/Login';
 import DashboardComponent from './components/Dashboard';
-import { Customer, Employee, Bahan, Expense, Order, supabase } from './lib/supabaseClient';
+import { Customer, Employee, Bahan, Expense, Order, supabase, Session, User as AuthUser } from './lib/supabaseClient';
 import { ToastProvider, useToast } from './hooks/useToast';
 import { ThemeProvider } from './hooks/useTheme';
 import ToastContainer from './components/toasts/ToastContainer';
@@ -22,20 +21,18 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     
     useEffect(() => {
-        const getSession = async () => {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (error) {
-                console.error("Error getting session:", error);
-            }
+        const fetchCurrentSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
             setLoading(false);
         };
-        getSession();
-
+    
+        fetchCurrentSession();
+        
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
         });
-
+    
         return () => {
             authListener.subscription.unsubscribe();
         };
@@ -51,14 +48,12 @@ const AppContent: React.FC = () => {
                 bahanRes,
                 expensesRes,
                 ordersRes,
-                usersRes
             ] = await Promise.all([
                 supabase.from('customers').select('*').order('name', { ascending: true }),
                 supabase.from('employees').select('*').order('name', { ascending: true }),
                 supabase.from('bahan').select('*').order('name', { ascending: true }),
                 supabase.from('expenses').select('*').order('tanggal', { ascending: false }),
                 supabase.from('orders').select('*, order_items(*), payments(*)').order('created_at', { ascending: false }),
-                supabase.auth.admin.listUsers() // Warning: Requires service_role key on backend
             ]);
 
             if (customersRes.error) throw customersRes.error;
@@ -66,18 +61,14 @@ const AppContent: React.FC = () => {
             if (bahanRes.error) throw bahanRes.error;
             if (expensesRes.error) throw expensesRes.error;
             if (ordersRes.error) throw ordersRes.error;
-            if (usersRes.error && usersRes.error.message !== "client is not authorized to perform this operation") {
-                 // Ignore auth error on client side, but log others
-                 console.error("Error fetching users:", usersRes.error);
-            }
-
-
+            
             setCustomers(customersRes.data || []);
             setEmployees(employeesRes.data || []);
             setBahanList(bahanRes.data || []);
             setExpenses(expensesRes.data || []);
             setOrders(ordersRes.data || []);
-            setUsers(usersRes.data?.users || []);
+            // Users are not fetched from client-side anymore for security.
+            setUsers([]);
             
             addToast('Data berhasil dimuat dari server.', 'success');
         } catch (error: any) {
@@ -101,7 +92,7 @@ const AppContent: React.FC = () => {
         }
     };
 
-    if (loading && !session) {
+    if (loading) {
        return <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex items-center justify-center"><p>Memuat...</p></div>;
     }
 

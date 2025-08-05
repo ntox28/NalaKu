@@ -24,7 +24,7 @@ interface BahanManagementProps {
 const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBahan, setEditingBahan] = useState<Bahan | null>(null);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Omit<Bahan, 'id' | 'created_at'>>({
         name: '',
         harga_end_customer: 0,
         harga_retail: 0,
@@ -70,17 +70,27 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'name' ? value : Number(value) }));
+        const processedValue = name === 'name' ? value : (value === '' ? 0 : Number(value));
+        setFormData(prev => ({ ...prev, [name]: processedValue }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        
+        const dataToSubmit = {
+            name: formData.name,
+            harga_end_customer: Number(formData.harga_end_customer) || 0,
+            harga_retail: Number(formData.harga_retail) || 0,
+            harga_grosir: Number(formData.harga_grosir) || 0,
+            harga_reseller: Number(formData.harga_reseller) || 0,
+            harga_corporate: Number(formData.harga_corporate) || 0,
+        };
 
         if (editingBahan) {
             const { error } = await supabase
                 .from('bahan')
-                .update(formData)
+                .update(dataToSubmit)
                 .eq('id', editingBahan.id);
 
             if (error) {
@@ -91,7 +101,7 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
                 handleCloseModal();
             }
         } else {
-            const { error } = await supabase.from('bahan').insert(formData);
+            const { error } = await supabase.from('bahan').insert(dataToSubmit);
             
             if (error) {
                 addToast(`Gagal menambahkan bahan: ${error.message}`, 'error');

@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
-import { Customer, CustomerLevel, Bahan, Order, Payment, PaymentStatus, ProductionStatus, supabase, Employee } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
+import { Customer, CustomerLevel, Bahan, Order, Payment, PaymentStatus, ProductionStatus, supabase, Employee, User as AuthUser } from '../../lib/supabaseClient';
 import PrintIcon from '../icons/PrintIcon';
 import WhatsAppIcon from '../icons/WhatsAppIcon';
 import ImageIcon from '../icons/ImageIcon';
@@ -24,7 +23,6 @@ interface TransactionManagementProps {
     customers: Customer[];
     bahanList: Bahan[];
     loggedInUser: AuthUser;
-    users: AuthUser[];
     employees: Employee[];
     highlightedItem?: { view: string; id: number | string } | null;
     clearHighlightedItem?: () => void;
@@ -74,7 +72,7 @@ const calculateTotalPaid = (order: Order): number => {
     return order.payments.reduce((sum, payment) => sum + payment.amount, 0);
 };
 
-const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, onUpdate, customers, bahanList, loggedInUser, users, employees, highlightedItem, clearHighlightedItem }) => {
+const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, onUpdate, customers, bahanList, loggedInUser, employees, highlightedItem, clearHighlightedItem }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState<number | null>(null);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -266,10 +264,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
         if (!order.payments || order.payments.length === 0) return '-';
         const lastPayment = order.payments[order.payments.length - 1];
         if (!lastPayment.kasir_id) return 'N/A';
-        const user = users.find(u => u.id === lastPayment.kasir_id);
-        if (!user) return 'User Dihapus';
-        const employee = employees.find(e => e.user_id === user.id);
-        return employee ? employee.name : (user.email || 'N/A');
+        const employee = employees.find(e => e.user_id === lastPayment.kasir_id);
+        return employee ? employee.name : 'Akun Tidak Dikenal';
     };
     
     const handlePrint = () => {
@@ -449,8 +445,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
                 <div className="hidden">
                      {selectedOrder && (
                         <>
-                            <Nota ref={notaRef} order={selectedOrder} customers={customers} bahanList={bahanList} users={users} employees={employees} loggedInUser={loggedInUser} calculateTotal={calculateTotal} />
-                            <Struk ref={strukRef} order={selectedOrder} customers={customers} bahanList={bahanList} users={users} employees={employees} loggedInUser={loggedInUser} calculateTotal={calculateTotal} />
+                            <Nota ref={notaRef} order={selectedOrder} customers={customers} bahanList={bahanList} employees={employees} loggedInUser={loggedInUser} calculateTotal={calculateTotal} />
+                            <Struk ref={strukRef} order={selectedOrder} customers={customers} bahanList={bahanList} employees={employees} loggedInUser={loggedInUser} calculateTotal={calculateTotal} />
                         </>
                      )}
                 </div>

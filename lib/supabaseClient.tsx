@@ -13,6 +13,38 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Self-defined types to prevent import issues from version mismatches.
+export type User = {
+    id: string;
+    app_metadata: { [key: string]: any; provider?: string; providers?: string[], userrole?: string };
+    user_metadata: { [key: string]: any };
+    aud: string;
+    confirmation_sent_at?: string;
+    recovery_sent_at?: string;
+    email_change_sent_at?: string;
+    new_email?: string;
+    invited_at?: string;
+    action_link?: string;
+    email?: string;
+    phone?: string;
+    created_at: string;
+    confirmed_at?: string;
+    email_confirmed_at?: string;
+    phone_confirmed_at?: string;
+    last_sign_in_at?: string;
+    role?: string;
+    updated_at?: string;
+};
+export type Session = {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    expires_at?: number;
+    refresh_token: string;
+    user: User;
+};
+
+
 export type CustomerLevel = 'End Customer' | 'Retail' | 'Grosir' | 'Reseller' | 'Corporate';
 export type EmployeePosition = 'Kasir' | 'Designer' | 'Sales' | 'Office' | 'Produksi' | 'Admin';
 export type ProductionStatus = 'Belum Dikerjakan' | 'Proses' | 'Selesai';
@@ -96,44 +128,135 @@ export interface Payment {
     kasir_id: string | null;
 }
 
+type OrderRow = Omit<Order, "order_items" | "payments">;
 
 export interface Database {
   public: {
     Tables: {
       customers: {
         Row: Customer;
-        Insert: { name: string; email: string; phone: string; address: string; level: CustomerLevel; };
-        Update: Partial<{ name: string; email: string; phone: string; address: string; level: CustomerLevel; }>;
+        Insert: {
+          name: string;
+          email: string;
+          phone: string;
+          address: string;
+          level: CustomerLevel;
+        };
+        Update: Partial<{
+          name: string;
+          email: string;
+          phone: string;
+          address: string;
+          level: CustomerLevel;
+        }>;
       };
       employees: {
         Row: Employee;
-        Insert: { name: string; position: EmployeePosition; email: string | null; phone: string | null; user_id: string | null; };
-        Update: Partial<{ name: string; position: EmployeePosition; email: string | null; phone: string | null; user_id: string | null; }>;
+        Insert: {
+          name: string;
+          position: EmployeePosition;
+          email: string | null;
+          phone: string | null;
+          user_id: string | null;
+        };
+        Update: Partial<{
+          name: string;
+          position: EmployeePosition;
+          email: string | null;
+          phone: string | null;
+          user_id: string | null;
+        }>;
       };
       bahan: {
         Row: Bahan;
-        Insert: { name: string; harga_end_customer: number; harga_retail: number; harga_grosir: number; harga_reseller: number; harga_corporate: number; };
-        Update: Partial<{ name: string; harga_end_customer: number; harga_retail: number; harga_grosir: number; harga_reseller: number; harga_corporate: number; }>;
+        Insert: {
+          name: string;
+          harga_end_customer: number;
+          harga_retail: number;
+          harga_grosir: number;
+          harga_reseller: number;
+          harga_corporate: number;
+        };
+        Update: Partial<{
+          name: string;
+          harga_end_customer: number;
+          harga_retail: number;
+          harga_grosir: number;
+          harga_reseller: number;
+          harga_corporate: number;
+        }>;
       };
       expenses: {
         Row: Expense;
-        Insert: { tanggal: string; jenis_pengeluaran: string; qty: number; harga: number; };
-        Update: Partial<{ tanggal: string; jenis_pengeluaran: string; qty: number; harga: number; }>;
+        Insert: {
+          tanggal: string;
+          jenis_pengeluaran: string;
+          qty: number;
+          harga: number;
+        };
+        Update: Partial<{
+          tanggal: string;
+          jenis_pengeluaran: string;
+          qty: number;
+          harga: number;
+        }>;
       };
       orders: {
-        Row: Omit<Order, 'order_items' | 'payments'>;
-        Insert: { no_nota: string; tanggal: string; pelanggan_id: number; pelaksana_id: string | null; status_pembayaran: PaymentStatus; status_pesanan: OrderStatus; };
-        Update: Partial<{ no_nota: string; tanggal: string; pelanggan_id: number; pelaksana_id: string | null; status_pembayaran: PaymentStatus; status_pesanan: OrderStatus; }>;
+        Row: OrderRow;
+        Insert: {
+            no_nota: string;
+            tanggal: string;
+            pelanggan_id: number;
+            pelaksana_id: string | null;
+            status_pembayaran: PaymentStatus;
+            status_pesanan: OrderStatus;
+        };
+        Update: Partial<{
+            no_nota: string;
+            tanggal: string;
+            pelanggan_id: number;
+            pelaksana_id: string | null;
+            status_pembayaran: PaymentStatus;
+            status_pesanan: OrderStatus;
+        }>;
       };
       order_items: {
         Row: OrderItem;
-        Insert: { order_id: number; bahan_id: number; deskripsi_pesanan: string | null; panjang: number | null; lebar: number | null; qty: number; status_produksi: ProductionStatus; finishing: string | null; };
-        Update: Partial<{ order_id: number; bahan_id: number; deskripsi_pesanan: string | null; panjang: number | null; lebar: number | null; qty: number; status_produksi: ProductionStatus; finishing: string | null; }>;
+        Insert: {
+            order_id: number;
+            bahan_id: number;
+            deskripsi_pesanan: string | null;
+            panjang: number | null;
+            lebar: number | null;
+            qty: number;
+            status_produksi: ProductionStatus;
+            finishing: string | null;
+        };
+        Update: Partial<{
+            order_id: number;
+            bahan_id: number;
+            deskripsi_pesanan: string | null;
+            panjang: number | null;
+            lebar: number | null;
+            qty: number;
+            status_produksi: ProductionStatus;
+            finishing: string | null;
+        }>;
       };
       payments: {
         Row: Payment;
-        Insert: { order_id: number; amount: number; payment_date: string; kasir_id: string | null; };
-        Update: Partial<{ order_id: number; amount: number; payment_date: string; kasir_id: string | null; }>;
+        Insert: {
+            order_id: number;
+            amount: number;
+            payment_date: string;
+            kasir_id: string | null;
+        };
+        Update: Partial<{
+            order_id: number;
+            amount: number;
+            payment_date: string;
+            kasir_id: string | null;
+        }>;
       };
     };
     Views: {
@@ -144,5 +267,6 @@ export interface Database {
     };
   };
 }
+
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);

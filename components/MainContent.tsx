@@ -1,7 +1,7 @@
 
 import React from 'react';
 import CustomerManagement from './customers/CustomerManagement';
-import { Customer, Employee, Bahan, Order, Expense } from '../lib/supabaseClient';
+import { Customer, Employee, Bahan, Order, Expense, User as AuthUser } from '../lib/supabaseClient';
 import EmployeeManagement from './employees/EmployeeManagement';
 import SettingsManagement from './settings/SettingsManagement';
 import BahanManagement from './bahan/BahanManagement';
@@ -11,7 +11,6 @@ import ProductionManagement from './production/ProductionManagement';
 import TransactionManagement from './transactions/TransactionManagement';
 import DashboardView from './dashboard/DashboardView';
 import FinanceView from './finance/FinanceView';
-import { User as AuthUser } from '@supabase/supabase-js';
 import GlobalSearch from './GlobalSearch';
 import MenuIcon from './icons/MenuIcon';
 
@@ -23,7 +22,6 @@ export type HighlightItem = {
 interface MainContentProps {
   user: AuthUser;
   activeView: string;
-  users: AuthUser[];
   customers: Customer[];
   bahanList: Bahan[];
   employees: Employee[];
@@ -51,7 +49,7 @@ const WelcomeContent: React.FC<{ user: AuthUser; activeView: string }> = ({ user
 
 const MainContent: React.FC<MainContentProps> = (props) => {
   const { 
-    user, activeView, users,
+    user, activeView,
     customers, bahanList,
     employees, orders,
     expenses, refetchData,
@@ -75,23 +73,23 @@ const MainContent: React.FC<MainContentProps> = (props) => {
       case 'Dashboard':
         return <DashboardView orders={orders} customers={customers} expenses={expenses} />;
       case 'Keuangan':
-        return <FinanceView orders={orders} expenses={expenses} customers={customers} bahanList={bahanList} users={users} />;
+        return <FinanceView orders={orders} expenses={expenses} customers={customers} bahanList={bahanList} employees={employees} />;
       case 'Order':
         return <OrderManagement customers={customers} bahanList={bahanList} orders={orders} onUpdate={refetchData} loggedInUser={user} {...highlightProps}/>;
       case 'Produksi':
         return <ProductionManagement orders={orders} onUpdate={refetchData} customers={customers} bahanList={bahanList} loggedInUser={user} {...highlightProps}/>;
       case 'Transaksi':
-        return <TransactionManagement orders={orders} onUpdate={refetchData} customers={customers} bahanList={bahanList} loggedInUser={user} users={users} employees={employees} {...highlightProps}/>;
+        return <TransactionManagement orders={orders} onUpdate={refetchData} customers={customers} bahanList={bahanList} loggedInUser={user} employees={employees} {...highlightProps}/>;
       case 'Daftar Pelanggan':
         return <CustomerManagement customers={customers} onUpdate={refetchData} {...highlightProps}/>;
       case 'Daftar Karyawan':
-        return <EmployeeManagement employees={employees} onUpdate={refetchData} users={users} />;
+        return <EmployeeManagement employees={employees} onUpdate={refetchData} />;
       case 'Daftar Bahan':
         return <BahanManagement bahanList={bahanList} onUpdate={refetchData} />;
        case 'Pengeluaran':
         return <ExpenseManagement expenses={expenses} onUpdate={refetchData} />;
       case 'Pengaturan':
-        return <SettingsManagement users={users} onUsersUpdate={refetchData} employees={employees} />;
+        return <SettingsManagement onUsersUpdate={refetchData} employees={employees} />;
       default:
         return <WelcomeContent user={user} activeView={activeView} />;
     }

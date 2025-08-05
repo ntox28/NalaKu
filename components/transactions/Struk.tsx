@@ -1,13 +1,11 @@
 
 import React, { forwardRef } from 'react';
-import { Customer, Bahan, Order, Employee, CustomerLevel } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
+import { Customer, Bahan, Order, Employee, CustomerLevel, User as AuthUser } from '../../lib/supabaseClient';
 
 interface StrukProps {
   order: Order;
   customers: Customer[];
   bahanList: Bahan[];
-  users: AuthUser[];
   employees: Employee[];
   loggedInUser: AuthUser;
   calculateTotal: (order: Order) => number;
@@ -33,17 +31,15 @@ const getPriceForCustomer = (bahan: Bahan, level: Customer['level']): number => 
     }
 };
 
-const Struk = forwardRef<HTMLDivElement, StrukProps>(({ order, customers, bahanList, users, employees, loggedInUser, calculateTotal }, ref) => {
+const Struk = forwardRef<HTMLDivElement, StrukProps>(({ order, customers, bahanList, employees, loggedInUser, calculateTotal }, ref) => {
   const customer = customers.find(c => c.id === order.pelanggan_id);
   const totalTagihan = calculateTotal(order);
   const totalPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
 
   const getEmployeeNameByUserId = (userId: string | null | undefined): string => {
     if (!userId) return 'N/A';
-    const user = users.find(u => u.id === userId);
-    if (!user) return 'User Dihapus';
-    const employee = employees.find(e => e.user_id === user.id);
-    return employee ? employee.name : (user.email || 'N/A');
+    const employee = employees.find(e => e.user_id === userId);
+    return employee ? employee.name : 'Akun Tidak Dikenal';
   };
 
   const lastPayment = order.payments.length > 0 ? order.payments[order.payments.length - 1] : null;

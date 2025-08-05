@@ -1,16 +1,15 @@
 
+
 import React, { useState, useEffect } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import Pagination from '../Pagination';
 import { useToast } from '../../hooks/useToast';
 import { Employee, EmployeePosition, supabase } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
 
 interface EmployeeManagementProps {
     employees: Employee[];
     onUpdate: () => void;
-    users: AuthUser[];
 }
 
 const getPositionColor = (position: EmployeePosition) => {
@@ -25,7 +24,7 @@ const getPositionColor = (position: EmployeePosition) => {
     return colors[position] || 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
 };
 
-const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUpdate, users }) => {
+const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUpdate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [formData, setFormData] = useState<Omit<Employee, 'id' | 'created_at' | 'user_id'>>({ name: '', position: 'Kasir', email: '', phone: '' });

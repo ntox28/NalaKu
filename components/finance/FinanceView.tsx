@@ -1,8 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
-import { Order, Customer, CustomerLevel, Bahan, Expense } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
+import { Order, Customer, CustomerLevel, Bahan, Expense, Employee } from '../../lib/supabaseClient';
 import StatCard from '../dashboard/StatCard';
 import TrendingUpIcon from '../icons/TrendingUpIcon';
 import TrendingDownIcon from '../icons/TrendingDownIcon';
@@ -18,7 +17,7 @@ interface FinanceViewProps {
     expenses: Expense[];
     customers: Customer[];
     bahanList: Bahan[];
-    users: AuthUser[];
+    employees: Employee[];
 }
 
 const formatCurrency = (value: number) => {

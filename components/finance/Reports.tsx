@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Order, Expense, Customer, Bahan, CustomerLevel } from '../../lib/supabaseClient';
-import { User as AuthUser } from '@supabase/supabase-js';
 import Pagination from '../Pagination';
 import DownloadIcon from '../icons/DownloadIcon';
 import PrintIcon from '../icons/PrintIcon';
@@ -11,7 +10,6 @@ interface ReportsProps {
     expenses: Expense[];
     customers: Customer[];
     bahanList: Bahan[];
-    users: AuthUser[];
     calculateOrderTotal: (order: Order, customers: Customer[], bahanList: Bahan[]) => number;
     getPriceForCustomer: (bahan: Bahan, level: Customer['level']) => number;
     formatCurrency: (value: number) => string;
@@ -165,7 +163,7 @@ const Reports: React.FC<ReportsProps> = (props) => {
         }, {} as Record<number, { name: string, qty: number, revenue: number }>);
         
         const bestMaterials = {
-            data: Object.values(materialSales).sort((a,b) => b.revenue - a.revenue).map(m => ({ "Nama Bahan": m.name, "Total Terjual (Qty/m²)": m.qty, "Total Pendapatan": m.revenue, }))
+            data: Object.values(materialSales).sort((a,b) => b.revenue - a.revenue).map(m => ({ "Nama Bahan": m.name, "Total Terjual (Qty/m²)": m.qty.toFixed(2), "Total Pendapatan": m.revenue, }))
         };
         
         return { sales, expenses: expenseList, topCustomers, bestMaterials };
@@ -188,7 +186,7 @@ const Reports: React.FC<ReportsProps> = (props) => {
         const isCurrencyColumn = ['Total', 'Harga', 'Pendapatan', 'Belanja', 'Jumlah'].some(term => header.includes(term)) && !header.includes('Transaksi');
         
         // All numeric columns for alignment purposes.
-        const isNumericColumn = typeof value === 'number' || isCurrencyColumn || ['Qty', 'Transaksi'].some(term => header.includes(term));
+        const isNumericColumn = typeof value === 'number' || isCurrencyColumn || ['Qty', 'Transaksi'].some(term => header.includes(term)) || header.includes('(Qty/m²)');
 
         const cellValue = (typeof value === 'number' && isCurrencyColumn)
             ? formatCurrency(value)
