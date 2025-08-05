@@ -9,11 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.53.0",
+    "html2canvas": "^1.4.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+<<<<<<< HEAD
     "html2canvas": "^1.4.1",
     "recharts": "^2.12.7",
     "@supabase/supabase-js": "^2.44.4"
+=======
+    "recharts": "^2.12.7"
+>>>>>>> 1417369d62f8e62645175b558463c9a18b90a208
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
