@@ -1,6 +1,6 @@
 
 import React, { forwardRef } from 'react';
-import { Customer } from '../customers/CustomerManagement';
+import { Customer, CustomerLevel } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import { Order } from '../orders/OrderManagement';
 import { User } from '../Login';
@@ -97,52 +97,46 @@ const Struk = forwardRef<HTMLDivElement, StrukProps>(({ order, customers, bahanL
   if (!bahan || !customer) return null;
 
   const hargaSatuan = getPriceForCustomer(bahan, customer.level);
-  const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
-  const jumlah = hargaSatuan * itemArea * item.qty;
-  const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}mx${item.lebar}m` : null;
+  const area = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+  const jumlah = hargaSatuan * area * item.qty;
 
   return (
-    <div key={item.id} className="flex items-start py-0.5">
-      <div className="w-[10%] pr-1">{index + 1}.</div>
-      <div className="w-[60%] pr-1 leading-tight break-words">
-        {item.deskripsiPesanan && <div>{item.deskripsiPesanan}</div>}
-        <div>{bahan.name}</div>
-        {ukuran && <div>{ukuran}</div>}
-        <div>{item.qty} Pcs</div>
-      </div>
-      <div className="w-[30%] text-right">{formatCurrency(jumlah)}</div>
+    <div key={item.id} className="py-0.5">
+        <div className="flex items-start">
+            <div className="w-[10%] pr-1 align-top">{index + 1}.</div>
+            <div className="w-[90%] break-words leading-tight">
+                <p>{item.deskripsiPesanan || bahan.name}</p>
+                <div className="flex justify-between text-[9px]">
+                    <span>{item.qty} x {formatCurrency(hargaSatuan * area)}</span>
+                    <span className="font-bold">{formatCurrency(jumlah)}</span>
+                </div>
+            </div>
+        </div>
     </div>
   );
 })}
+<hr className="border-dashed border-black my-0.5" />
+<div className="space-y-1 mt-1">
+  <div className="flex justify-between">
+    <span>Subtotal:</span>
+    <span className="font-bold">{formatCurrency(totalTagihan)}</span>
+  </div>
+  <div className="flex justify-between">
+    <span>Bayar:</span>
+    <span>{formatCurrency(totalPaid)}</span>
+  </div>
+  <div className="flex justify-between font-bold text-sm">
+    <span>SISA:</span>
+    <span>{formatCurrency(totalTagihan - totalPaid)}</span>
+  </div>
+</div>
+<hr className="border-dashed border-black my-2" />
+<div className="text-center text-[9px] mt-1 space-y-1">
+  <p>Mohon barang dicek kembali.</p>
+  <p>Komplain 1x24 Jam.</p>
+  <p className="font-bold">Terima Kasih!</p>
+</div>
 
-      <hr className="border-dashed border-black my-0.5"/>
-      <div className="leading-tight">
-          <div className="flex justify-between">
-            <span>Total</span>
-            <span>{formatCurrency(totalTagihan)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Bayar</span>
-            <span>{formatCurrency(totalPaid)}</span>
-          </div>
-          <div className="flex justify-between font-bold">
-            <span>Sisa</span>
-            <span>{formatCurrency(totalTagihan - totalPaid)}</span>
-          </div>
-      </div>
-      <hr className="border-dashed border-black my-0.5"/>
-      <div className="text-center text-[9px] leading-tight">
-        <div className="font-bold m-0">Pembayaran Transfer :</div>
-        <div className="font-bold m-0"> a/n Ariska Prima Diastari</div>
-        <div className="m-0">BRI : 670-70-10-28864537</div> 
-        <div className="m-0">BCA : 0154361801</div> 
-        <div className="m-0">BPD JATENG : 3142069325</div>
-        <hr className="my-0.5 border-dashed border-black"/>
-        <div className="m-0">Mohon barang di cek terlebih dahulu</div>
-        <div className="m-0">Komplain lebih dari 1 hari</div>
-        <div className="m-0">tidak kami layani!</div>
-        <div className="m-0">Terima Kasih :)</div>
-      </div>
     </div>
   );
 });

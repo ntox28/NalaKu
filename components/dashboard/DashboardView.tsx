@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from 'recharts';
 import { Order } from '../orders/OrderManagement';
-import { Customer } from '../customers/CustomerManagement';
+import { Customer } from '../../lib/supabaseClient';
 import { Expense } from '../expenses/ExpenseManagement';
 import StatCard from './StatCard';
 import OrderIcon from '../icons/OrderIcon';

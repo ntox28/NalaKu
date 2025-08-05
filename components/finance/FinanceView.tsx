@@ -1,7 +1,8 @@
+
 import React, { useMemo, useState } from 'react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 import { Order } from '../orders/OrderManagement';
-import { Customer, CustomerLevel } from '../customers/CustomerManagement';
+import { Customer, CustomerLevel } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import { Expense } from '../expenses/ExpenseManagement';
 import { User } from '../Login';

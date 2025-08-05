@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
-import { Customer, CustomerLevel } from '../customers/CustomerManagement';
+import { Customer, CustomerLevel } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import { Order, OrderItem, Payment, PaymentStatus, ProductionStatus } from '../orders/OrderManagement';
 import { User } from '../Login';

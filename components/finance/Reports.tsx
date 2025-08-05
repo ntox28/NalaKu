@@ -1,8 +1,9 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Order } from '../orders/OrderManagement';
 import { Expense } from '../expenses/ExpenseManagement';
-import { Customer } from '../customers/CustomerManagement';
+import { Customer } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import { User } from '../Login';
 import Pagination from '../Pagination';

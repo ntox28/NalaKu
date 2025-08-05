@@ -1,17 +1,17 @@
 
-
 import React, { useState, useEffect } from 'react';
 import LoginComponent, { User } from './components/Login';
 import DashboardComponent from './components/Dashboard';
-import { Customer } from './components/customers/CustomerManagement';
+import { Customer } from './lib/supabaseClient';
 import { Bahan } from './components/bahan/BahanManagement';
-import { Order, Payment } from './components/orders/OrderManagement';
+import { Order } from './components/orders/OrderManagement';
 import { Employee } from './components/employees/EmployeeManagement';
 import { Expense } from './components/expenses/ExpenseManagement';
 import { ToastProvider, useToast } from './hooks/useToast';
 import ToastContainer from './components/toasts/ToastContainer';
 import useLocalStorage from './hooks/useLocalStorage';
 import { ThemeProvider } from './hooks/useTheme';
+import { supabase } from './lib/supabaseClient';
 
 
 const initialUsers: User[] = [
@@ -19,14 +19,6 @@ const initialUsers: User[] = [
     { id: 'kasir', password: 'kasir', level: 'Kasir', employeeId: 2 },
     { id: 'produksi', password: 'produksi', level: 'Produksi', employeeId: 4 },
     { id: 'office', password: 'office', level: 'Office', employeeId: 5 },
-];
-
-const initialCustomers: Customer[] = [
-    { id: 1, name: 'Budi Santoso', email: 'budi.s@example.com', phone: '081234567890', address: 'Jl. Merdeka No. 10, Jakarta', level: 'Retail' },
-    { id: 2, name: 'Citra Lestari', email: 'citra.l@example.com', phone: '082345678901', address: 'Jl. Sudirman No. 25, Bandung', level: 'End Customer' },
-    { id: 3, name: 'Dewi Anggraini', email: 'dewi.a@example.com', phone: '083456789012', address: 'Jl. Gajah Mada No. 5, Surabaya', level: 'Grosir' },
-    { id: 4, name: 'Eko Prasetyo', email: 'eko.p@example.com', phone: '085678901234', address: 'Jl. Pahlawan No. 12, Semarang', level: 'Reseller' },
-    { id: 5, name: 'Antok Sugiyanto', email: 'antokbosok@gmail.com', phone: '082247770012', address: 'Karanganyar Kota', level: 'Corporate' },
 ];
 
 const initialBahan: Bahan[] = [
@@ -130,53 +122,81 @@ const DataMigrationManager: React.FC<{
   return null; // This component does not render anything visible
 };
 
+const AppContent: React.FC = () => {
+    const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+
+    const [users, setUsers] = useLocalStorage<User[]>('nala-app:users', initialUsers);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [bahanList, setBahanList] = useLocalStorage<Bahan[]>('nala-app:bahan', initialBahan);
+    const [employees, setEmployees] = useLocalStorage<Employee[]>('nala-app:employees', initialEmployees);
+    const [orders, setOrders] = useLocalStorage<Order[]>('nala-app:orders', initialOrders);
+    const [expenses, setExpenses] = useLocalStorage<Expense[]>('nala-app:expenses', initialExpenses);
+    const { addToast } = useToast();
+
+    const fetchCustomers = async () => {
+        const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching customers:', error);
+            addToast(`Gagal mengambil data pelanggan: ${error.message}`, 'error');
+        } else {
+            setCustomers(data || []);
+        }
+    };
+
+    useEffect(() => {
+        fetchCustomers();
+    }, []);
+
+    const handleLoginSuccess = (user: User) => {
+        setLoggedInUser(user);
+    };
+
+    const handleLogout = () => {
+        setLoggedInUser(null);
+    };
+
+    return (
+        <>
+            <DataMigrationManager orders={orders} setOrders={setOrders} />
+            <div className="min-h-screen bg-gray-100 dark:bg-slate-900 selection:bg-orange-500 selection:text-white">
+                <ToastContainer />
+                {loggedInUser ? (
+                    <DashboardComponent 
+                        user={loggedInUser} 
+                        onLogout={handleLogout} 
+                        users={users}
+                        onUsersUpdate={setUsers}
+                        customers={customers}
+                        onCustomersUpdate={fetchCustomers}
+                        bahanList={bahanList}
+                        onBahanUpdate={setBahanList}
+                        employees={employees}
+                        onEmployeesUpdate={setEmployees}
+                        orders={orders}
+                        onOrdersUpdate={setOrders}
+                        expenses={expenses}
+                        onExpensesUpdate={setExpenses}
+                    />
+                ) : (
+                    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
+                        <LoginComponent onLoginSuccess={handleLoginSuccess} users={users} />
+                    </div>
+                )}
+            </div>
+        </>
+    );
+};
+
+
 const App: React.FC = () => {
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
-
-  const [users, setUsers] = useLocalStorage<User[]>('nala-app:users', initialUsers);
-  const [customers, setCustomers] = useLocalStorage<Customer[]>('nala-app:customers', initialCustomers);
-  const [bahanList, setBahanList] = useLocalStorage<Bahan[]>('nala-app:bahan', initialBahan);
-  const [employees, setEmployees] = useLocalStorage<Employee[]>('nala-app:employees', initialEmployees);
-  const [orders, setOrders] = useLocalStorage<Order[]>('nala-app:orders', initialOrders);
-  const [expenses, setExpenses] = useLocalStorage<Expense[]>('nala-app:expenses', initialExpenses);
-
-  const handleLoginSuccess = (user: User) => {
-    setLoggedInUser(user);
-  };
-
-  const handleLogout = () => {
-    setLoggedInUser(null);
-  };
-
   return (
     <ThemeProvider>
         <ToastProvider>
-            <DataMigrationManager orders={orders} setOrders={setOrders} />
-            <div className="min-h-screen bg-gray-100 dark:bg-slate-900 selection:bg-orange-500 selection:text-white">
-            <ToastContainer />
-            {loggedInUser ? (
-                <DashboardComponent 
-                user={loggedInUser} 
-                onLogout={handleLogout} 
-                users={users}
-                onUsersUpdate={setUsers}
-                customers={customers}
-                onCustomersUpdate={setCustomers}
-                bahanList={bahanList}
-                onBahanUpdate={setBahanList}
-                employees={employees}
-                onEmployeesUpdate={setEmployees}
-                orders={orders}
-                onOrdersUpdate={setOrders}
-                expenses={expenses}
-                onExpensesUpdate={setExpenses}
-                />
-            ) : (
-                <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-                    <LoginComponent onLoginSuccess={handleLoginSuccess} users={users} />
-                </div>
-            )}
-            </div>
+            <AppContent />
         </ToastProvider>
     </ThemeProvider>
   );

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Customer } from './customers/CustomerManagement';
+import { Customer } from '../lib/supabaseClient';
 import FilterIcon from './icons/FilterIcon';
 
 interface FilterBarProps {

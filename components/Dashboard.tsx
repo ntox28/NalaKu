@@ -12,7 +12,7 @@ import EmployeesIcon from './icons/EmployeesIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import LogoutIcon from './icons/LogoutIcon';
 import { User } from './Login';
-import { Customer } from './customers/CustomerManagement';
+import { Customer } from '../lib/supabaseClient';
 import { Bahan } from './bahan/BahanManagement';
 import { Order } from './orders/OrderManagement';
 import { Employee } from './employees/EmployeeManagement';
@@ -25,7 +25,7 @@ interface DashboardProps {
   users: User[];
   onUsersUpdate: (users: User[]) => void;
   customers: Customer[];
-  onCustomersUpdate: (customers: Customer[]) => void;
+  onCustomersUpdate: () => void;
   bahanList: Bahan[];
   onBahanUpdate: (bahan: Bahan[]) => void;
   employees: Employee[];

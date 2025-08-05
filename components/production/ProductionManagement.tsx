@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Customer } from '../customers/CustomerManagement';
+import { Customer } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import { Order, OrderItem, ProductionStatus } from '../orders/OrderManagement';
 import { User } from '../Login';

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PrintIcon from '../icons/PrintIcon';
-import { Customer, CustomerLevel } from '../customers/CustomerManagement';
+import { Customer, CustomerLevel } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 import ChevronDownIcon from '../icons/ChevronDownIcon';
 import Pagination from '../Pagination';

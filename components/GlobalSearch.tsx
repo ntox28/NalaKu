@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Order } from './orders/OrderManagement';
-import { Customer } from './customers/CustomerManagement';
+import { Customer } from '../lib/supabaseClient';
 import SearchIcon from './icons/SearchIcon';
 
 type SearchResult = {

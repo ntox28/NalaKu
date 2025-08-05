@@ -3,21 +3,11 @@ import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import Pagination from '../Pagination';
 import { useToast } from '../../hooks/useToast';
-
-export type CustomerLevel = 'End Customer' | 'Retail' | 'Grosir' | 'Reseller' | 'Corporate';
-
-export interface Customer {
-    id: number;
-    name: string;
-    email: string;
-    phone: string;
-    address: string;
-    level: CustomerLevel;
-}
+import { supabase, Customer, CustomerLevel } from '../../lib/supabaseClient';
 
 interface CustomerManagementProps {
     customers: Customer[];
-    onUpdate: (updatedCustomers: Customer[]) => void;
+    onUpdate: () => void;
     highlightedItem?: { view: string; id: number | string } | null;
     clearHighlightedItem?: () => void;
 }
@@ -39,6 +29,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, onUp
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', address: '', level: 'End Customer' as CustomerLevel });
     const [currentPage, setCurrentPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
     const itemRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
@@ -102,28 +93,48 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, onUp
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
+
         if (editingCustomer) {
-            onUpdate(customers.map(c => c.id === editingCustomer.id ? { ...c, ...formData } : c));
-            addToast('Pelanggan berhasil diperbarui!', 'success');
+            const { error } = await supabase
+                .from('customers')
+                .update(formData)
+                .eq('id', editingCustomer.id);
+
+            if (error) {
+                addToast(`Gagal memperbarui pelanggan: ${error.message}`, 'error');
+            } else {
+                addToast('Pelanggan berhasil diperbarui!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         } else {
-            const newCustomer = { id: Date.now(), ...formData };
-            const updatedCustomers = [...customers, newCustomer];
-            onUpdate(updatedCustomers);
-            setCurrentPage(Math.ceil(updatedCustomers.length / ITEMS_PER_PAGE));
-            addToast('Pelanggan berhasil ditambahkan!', 'success');
+            const { error } = await supabase.from('customers').insert(formData);
+            
+            if (error) {
+                addToast(`Gagal menambahkan pelanggan: ${error.message}`, 'error');
+            } else {
+                addToast('Pelanggan berhasil ditambahkan!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         }
-        handleCloseModal();
+        setIsLoading(false);
     };
 
-    const handleDelete = (customerId: number) => {
+    const handleDelete = async (customerId: number) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')) {
-            onUpdate(customers.filter(c => c.id !== customerId));
-            if (currentCustomers.length === 1 && currentPage > 1) {
-                setCurrentPage(currentPage - 1);
+            setIsLoading(true);
+            const { error } = await supabase.from('customers').delete().eq('id', customerId);
+            if (error) {
+                addToast(`Gagal menghapus pelanggan: ${error.message}`, 'error');
+            } else {
+                addToast('Pelanggan berhasil dihapus.', 'success');
+                onUpdate();
             }
-            addToast('Pelanggan berhasil dihapus.', 'success');
+            setIsLoading(false);
         }
     };
 
@@ -229,7 +240,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, onUp
                                 </div>
                                 <div className="flex justify-end space-x-4 pt-4 flex-shrink-0">
                                     <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingCustomer ? 'Simpan Perubahan' : 'Simpan'}</button>
+                                    <button type="submit" disabled={isLoading} className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:bg-orange-300">{isLoading ? 'Menyimpan...' : (editingCustomer ? 'Simpan Perubahan' : 'Simpan')}</button>
                                 </div>
                             </form>
                         </div>

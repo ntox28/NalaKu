@@ -96,8 +96,7 @@ const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
                     </div>
 
                     <div className="text-sm">
-                        <a href="https://wa.me/6282247770012?text=Assalamualaikum%2C%20Saya%20lupa%20Password%20masuk%20ke%20Aplikasi%20NalaKu.Boleh%20saya%20minta%20Id%20dan%20Password%20saya%3F
-" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
+                        <a href="#" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
                             Tanya sandi?
                         </a>
                     </div>

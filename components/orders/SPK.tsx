@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { Order } from './OrderManagement';
-import { Customer } from '../customers/CustomerManagement';
+import { Customer } from '../../lib/supabaseClient';
 import { Bahan } from '../bahan/BahanManagement';
 
 interface SPKProps {

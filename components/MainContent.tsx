@@ -1,7 +1,7 @@
 
-
 import React from 'react';
-import CustomerManagement, { Customer } from './customers/CustomerManagement';
+import CustomerManagement from './customers/CustomerManagement';
+import { Customer } from '../lib/supabaseClient';
 import EmployeeManagement, { Employee } from './employees/EmployeeManagement';
 import SettingsManagement from './settings/SettingsManagement';
 import BahanManagement, { Bahan } from './bahan/BahanManagement';
@@ -26,7 +26,7 @@ interface MainContentProps {
   users: User[];
   onUsersUpdate: (users: User[]) => void;
   customers: Customer[];
-  onCustomersUpdate: (customers: Customer[]) => void;
+  onCustomersUpdate: () => void;
   bahanList: Bahan[];
   onBahanUpdate: (bahan: Bahan[]) => void;
   employees: Employee[];
