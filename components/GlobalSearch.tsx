@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Order } from './orders/OrderManagement';
-import { Customer } from '../lib/supabaseClient';
+import { Order, Customer } from '../lib/supabaseClient';
 import SearchIcon from './icons/SearchIcon';
 
 type SearchResult = {
@@ -42,14 +42,14 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ orders, customers, onResult
     const lowerCaseQuery = query.toLowerCase();
     const foundOrders: SearchResult[] = orders
       .filter(o =>
-        o.noNota.toLowerCase().includes(lowerCaseQuery) ||
-        o.items.some(item => item.deskripsiPesanan.toLowerCase().includes(lowerCaseQuery))
+        o.no_nota.toLowerCase().includes(lowerCaseQuery) ||
+        o.order_items.some(item => item.deskripsi_pesanan?.toLowerCase().includes(lowerCaseQuery))
       )
       .map(o => ({
         type: 'order',
         id: o.id,
-        title: `Nota: ${o.noNota}`,
-        subtitle: `Pelanggan: ${customers.find(c => c.id === o.pelangganId)?.name || 'N/A'}`,
+        title: `Nota: ${o.no_nota}`,
+        subtitle: `Pelanggan: ${customers.find(c => c.id === o.pelanggan_id)?.name || 'N/A'}`,
         view: 'Transaksi',
       }));
 
@@ -114,28 +114,27 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ orders, customers, onResult
       {isFocused && query.length > 1 && (
         <div className="absolute mt-2 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20 max-h-96 overflow-y-auto">
             {results.length > 0 ? (
-                Object.entries(groupedResults).map(([groupName, groupResults]) => (
-                    <div key={groupName}>
-                        <h4 className="px-4 py-2 text-xs font-bold uppercase text-slate-400 bg-slate-50 dark:bg-slate-700/50">{groupName}</h4>
-                        <ul>
-                            {groupResults.map(result => (
-                                <li key={`${result.type}-${result.id}`}>
-                                    <button
+                 <div className="p-2 space-y-2">
+                    {Object.entries(groupedResults).map(([groupName, groupResults]) => (
+                        <div key={groupName}>
+                            <h4 className="px-3 pt-2 pb-1 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">{groupName}</h4>
+                            <ul>
+                                {groupResults.map(result => (
+                                    <li
+                                        key={`${result.type}-${result.id}`}
                                         onClick={() => handleSelect(result)}
-                                        className="w-full text-left px-4 py-3 hover:bg-orange-50 dark:hover:bg-slate-700 transition-colors"
+                                        className="px-3 py-2 rounded-md hover:bg-orange-50 dark:hover:bg-slate-700 cursor-pointer"
                                     >
-                                        <p className="font-semibold text-slate-800 dark:text-slate-200">{result.title}</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">{result.subtitle}</p>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                ))
-            ) : (
-                <div className="p-4 text-center text-sm text-slate-500">
-                    Tidak ada hasil ditemukan untuk "{query}"
+                                        <p className="font-semibold text-slate-800 dark:text-slate-100">{result.title}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{result.subtitle}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
+            ) : (
+                <div className="p-4 text-sm text-slate-500 dark:text-slate-400">Tidak ada hasil ditemukan.</div>
             )}
         </div>
       )}

@@ -1,21 +1,19 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Customer } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
-import { Order, OrderItem, ProductionStatus } from '../orders/OrderManagement';
-import { User } from '../Login';
+import { Customer, Bahan, Order, OrderItem, ProductionStatus, supabase } from '../../lib/supabaseClient';
+import { User as AuthUser } from '@supabase/supabase-js';
 import ChevronDownIcon from '../icons/ChevronDownIcon';
 import Pagination from '../Pagination';
 import FilterBar from '../FilterBar';
 import { useToast } from '../../hooks/useToast';
 
+
 interface ProductionManagementProps {
     orders: Order[];
-    onUpdate: (updatedOrders: Order[] | ((orders: Order[]) => Order[])) => void;
+    onUpdate: () => void;
     customers: Customer[];
     bahanList: Bahan[];
-    loggedInUser: User;
+    loggedInUser: AuthUser;
     highlightedItem?: { view: string; id: number | string } | null;
     clearHighlightedItem?: () => void;
 }
@@ -54,15 +52,15 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
     const filteredOrders = useMemo(() => {
         return orders
             .filter(order => {
-                if (order.statusPesanan !== 'Proses') return false;
+                if (order.status_pesanan !== 'Proses') return false;
                 
-                const customerMatch = filters.customerId === 'all' || order.pelangganId === Number(filters.customerId);
+                const customerMatch = filters.customerId === 'all' || order.pelanggan_id === Number(filters.customerId);
                 const startDateMatch = !filters.startDate || order.tanggal >= filters.startDate;
                 const endDateMatch = !filters.endDate || order.tanggal <= filters.endDate;
-                const statusMatch = filters.status === 'all' || order.items.some(item => item.statusProduksi === filters.status);
+                const statusMatch = filters.status === 'all' || order.order_items.some(item => item.status_produksi === filters.status);
                 return customerMatch && startDateMatch && endDateMatch && statusMatch;
             })
-            .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }, [orders, filters]);
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
@@ -115,7 +113,7 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
         { value: 'Selesai', label: 'Selesai' },
     ];
 
-    const getCustomerName = (id: number | '') => {
+    const getCustomerName = (id: number | '' | undefined) => {
         return customers.find(c => c.id === id)?.name || 'N/A';
     }
 
@@ -123,32 +121,47 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
         setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
     };
     
-    const handleTakeJob = (orderId: number) => {
-        onUpdate(prevOrders => prevOrders.map(order => 
-            order.id === orderId ? { ...order, pelaksanaId: loggedInUser.id } : order
-        ));
-        addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah diambil.`, 'success');
+    const handleTakeJob = async (orderId: number) => {
+        const { error } = await supabase
+            .from('orders')
+            .update({ pelaksana_id: loggedInUser.id })
+            .eq('id', orderId);
+
+        if (error) {
+            addToast(`Gagal mengambil pekerjaan: ${error.message}`, 'error');
+        } else {
+            addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.no_nota} telah diambil.`, 'success');
+            onUpdate();
+        }
     };
 
-    const handleReleaseJob = (orderId: number) => {
-        onUpdate(prevOrders => prevOrders.map(order => 
-            order.id === orderId ? { ...order, pelaksanaId: null } : order
-        ));
-        addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah dilepaskan.`, 'info');
+    const handleReleaseJob = async (orderId: number) => {
+        const { error } = await supabase
+            .from('orders')
+            .update({ pelaksana_id: null })
+            .eq('id', orderId);
+
+        if (error) {
+            addToast(`Gagal melepas pekerjaan: ${error.message}`, 'error');
+        } else {
+            addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.no_nota} telah dilepaskan.`, 'info');
+            onUpdate();
+        }
     };
 
 
-    const handleStatusChange = (orderId: number, itemId: number, newStatus: ProductionStatus) => {
-        onUpdate(prevOrders => prevOrders.map(order => {
-            if (order.id === orderId) {
-                const updatedItems = order.items.map(item => 
-                    item.id === itemId ? { ...item, statusProduksi: newStatus } : item
-                );
-                return { ...order, items: updatedItems };
-            }
-            return order;
-        }));
-        addToast(`Status item untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah diubah menjadi ${newStatus}.`, 'info');
+    const handleStatusChange = async (orderId: number, itemId: number, newStatus: ProductionStatus) => {
+        const { error } = await supabase
+            .from('order_items')
+            .update({ status_produksi: newStatus })
+            .eq('id', itemId);
+
+        if (error) {
+            addToast(`Gagal mengubah status: ${error.message}`, 'error');
+        } else {
+            addToast(`Status item untuk Nota ${orders.find(o=>o.id === orderId)?.no_nota} telah diubah.`, 'info');
+            onUpdate();
+        }
     };
 
     return (
@@ -183,14 +196,14 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                                 className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
                                 ref={el => { itemRefs.current[order.id] = el; }}
                             >
-                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
+                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.no_nota}</th>
                                 <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
+                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelanggan_id)}</td>
                                 <td data-label="Pelaksana" className="px-6 py-4">
-                                    {order.pelaksanaId ? (
+                                    {order.pelaksana_id ? (
                                         <div className="flex items-center justify-end md:justify-start gap-2">
-                                            <span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{order.pelaksanaId}</span>
-                                            {order.pelaksanaId === loggedInUser.id && (
+                                            <span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{loggedInUser?.email}</span>
+                                            {order.pelaksana_id === loggedInUser.id && (
                                                 <button 
                                                     onClick={() => handleReleaseJob(order.id)} 
                                                     className="bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-semibold py-1 px-3 rounded-lg text-xs transition-colors"
@@ -213,7 +226,7 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                                         onClick={() => toggleExpand(order.id)}
                                         className="flex items-center justify-center w-full space-x-2 text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors"
                                     >
-                                        <span>{order.items.length} item</span>
+                                        <span>{order.order_items.length} item</span>
                                         <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${expandedOrderId === order.id ? 'rotate-180' : ''}`} />
                                     </button>
                                 </td>
@@ -235,29 +248,29 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                                                        {order.items.map(item => {
-                                                            const bahan = bahanList.find(b => b.id === item.bahanId);
+                                                        {order.order_items.map(item => {
+                                                            const bahan = bahanList.find(b => b.id === item.bahan_id);
                                                             return (
                                                                 <tr key={item.id}>
                                                                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{bahan?.name || 'N/A'}</td>
-                                                                    <td className="px-4 py-3">{item.panjang > 0 && item.lebar > 0 ? `${item.panjang}m x ${item.lebar}m` : '-'}</td>
+                                                                    <td className="px-4 py-3">{(item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? `${item.panjang}m x ${item.lebar}m` : '-'}</td>
                                                                     <td className="px-4 py-3 text-center">{item.qty}</td>
                                                                     <td className="px-4 py-3 text-center">
-                                                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.statusProduksi)}`}>
-                                                                            {item.statusProduksi}
+                                                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status_produksi)}`}>
+                                                                            {item.status_produksi}
                                                                         </span>
                                                                     </td>
                                                                     <td className="px-4 py-3 text-center space-x-2">
                                                                         <button 
                                                                             onClick={() => handleStatusChange(order.id, item.id, 'Proses')}
-                                                                            disabled={item.statusProduksi === 'Proses' || item.statusProduksi === 'Selesai'}
+                                                                            disabled={item.status_produksi === 'Proses' || item.status_produksi === 'Selesai'}
                                                                             className="px-3 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-md hover:bg-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900/70 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed dark:disabled:bg-slate-600 dark:disabled:text-slate-400 transition-colors"
                                                                         >
                                                                             Proses
                                                                         </button>
                                                                         <button 
                                                                             onClick={() => handleStatusChange(order.id, item.id, 'Selesai')}
-                                                                            disabled={item.statusProduksi === 'Selesai'}
+                                                                            disabled={item.status_produksi === 'Selesai'}
                                                                             className="px-3 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-md hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/70 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed dark:disabled:bg-slate-600 dark:disabled:text-slate-400 transition-colors"
                                                                         >
                                                                             Selesai

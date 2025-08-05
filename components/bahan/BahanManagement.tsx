@@ -1,23 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import Pagination from '../Pagination';
 import { useToast } from '../../hooks/useToast';
+import { Bahan, supabase } from '../../lib/supabaseClient';
 
-export interface Bahan {
-    id: number;
-    name: string;
-    hargaEndCustomer: number;
-    hargaRetail: number;
-    hargaGrosir: number;
-    hargaReseller: number;
-    hargaCorporate: number;
-}
-
-interface BahanManagementProps {
-    bahanList: Bahan[];
-    onUpdate: (updatedBahan: Bahan[]) => void;
-}
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -28,18 +16,24 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
+interface BahanManagementProps {
+    bahanList: Bahan[];
+    onUpdate: () => void;
+}
+
 const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBahan, setEditingBahan] = useState<Bahan | null>(null);
     const [formData, setFormData] = useState({
         name: '',
-        hargaEndCustomer: 0,
-        hargaRetail: 0,
-        hargaGrosir: 0,
-        hargaReseller: 0,
-        hargaCorporate: 0,
+        harga_end_customer: 0,
+        harga_retail: 0,
+        harga_grosir: 0,
+        harga_reseller: 0,
+        harga_corporate: 0,
     });
     const [currentPage, setCurrentPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
 
@@ -49,9 +43,16 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
     useEffect(() => {
         if (isModalOpen) {
             if (editingBahan) {
-                setFormData(editingBahan);
+                setFormData({
+                    name: editingBahan.name,
+                    harga_end_customer: editingBahan.harga_end_customer,
+                    harga_retail: editingBahan.harga_retail,
+                    harga_grosir: editingBahan.harga_grosir,
+                    harga_reseller: editingBahan.harga_reseller,
+                    harga_corporate: editingBahan.harga_corporate,
+                });
             } else {
-                 setFormData({ name: '', hargaEndCustomer: 0, hargaRetail: 0, hargaGrosir: 0, hargaReseller: 0, hargaCorporate: 0 });
+                 setFormData({ name: '', harga_end_customer: 0, harga_retail: 0, harga_grosir: 0, harga_reseller: 0, harga_corporate: 0 });
             }
         }
     }, [isModalOpen, editingBahan]);
@@ -72,28 +73,49 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
         setFormData(prev => ({ ...prev, [name]: name === 'name' ? value : Number(value) }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
+
         if (editingBahan) {
-            onUpdate(bahanList.map(b => b.id === editingBahan.id ? { ...b, ...formData } : b));
-            addToast('Bahan berhasil diperbarui!', 'success');
+            const { error } = await supabase
+                .from('bahan')
+                .update(formData)
+                .eq('id', editingBahan.id);
+
+            if (error) {
+                addToast(`Gagal memperbarui bahan: ${error.message}`, 'error');
+            } else {
+                addToast('Bahan berhasil diperbarui!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         } else {
-            const newBahan = { id: Date.now(), ...formData };
-            const updatedBahanList = [...bahanList, newBahan];
-            onUpdate(updatedBahanList);
-            setCurrentPage(Math.ceil(updatedBahanList.length / ITEMS_PER_PAGE));
-            addToast('Bahan berhasil ditambahkan!', 'success');
+            const { error } = await supabase.from('bahan').insert(formData);
+            
+            if (error) {
+                addToast(`Gagal menambahkan bahan: ${error.message}`, 'error');
+            } else {
+                addToast('Bahan berhasil ditambahkan!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         }
-        handleCloseModal();
+        setIsLoading(false);
     };
 
-    const handleDelete = (bahanId: number) => {
+    const handleDelete = async (bahanId: number) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus bahan ini?')) {
-            onUpdate(bahanList.filter(b => b.id !== bahanId));
-            if (currentBahanList.length === 1 && currentPage > 1) {
-                setCurrentPage(currentPage - 1);
+            setIsLoading(true);
+            const { error } = await supabase.from('bahan').delete().eq('id', bahanId);
+            
+            if (error) {
+                addToast(`Gagal menghapus bahan: ${error.message}`, 'error');
+            } else {
+                addToast('Bahan berhasil dihapus.', 'success');
+                onUpdate();
             }
-            addToast('Bahan berhasil dihapus.', 'success');
+            setIsLoading(false);
         }
     };
 
@@ -125,11 +147,11 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
                         {currentBahanList.map((bahan) => (
                             <tr key={bahan.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{bahan.name}</th>
-                                <td data-label="End Customer" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaEndCustomer)}</td>
-                                <td data-label="Retail" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaRetail)}</td>
-                                <td data-label="Grosir" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaGrosir)}</td>
-                                <td data-label="Reseller" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaReseller)}</td>
-                                <td data-label="Corporate" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaCorporate)}</td>
+                                <td data-label="End Customer" className="px-6 py-4 text-right">{formatCurrency(bahan.harga_end_customer)}</td>
+                                <td data-label="Retail" className="px-6 py-4 text-right">{formatCurrency(bahan.harga_retail)}</td>
+                                <td data-label="Grosir" className="px-6 py-4 text-right">{formatCurrency(bahan.harga_grosir)}</td>
+                                <td data-label="Reseller" className="px-6 py-4 text-right">{formatCurrency(bahan.harga_reseller)}</td>
+                                <td data-label="Corporate" className="px-6 py-4 text-right">{formatCurrency(bahan.harga_corporate)}</td>
                                 <td data-label="Aksi" className="px-6 py-4 text-center space-x-3">
                                     <button onClick={() => handleOpenModal(bahan)} className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors p-1">
                                         <EditIcon className="w-5 h-5" />
@@ -158,29 +180,29 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div>
-                                        <label htmlFor="hargaEndCustomer" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga End Customer</label>
-                                        <input type="number" name="hargaEndCustomer" id="hargaEndCustomer" value={formData.hargaEndCustomer} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="harga_end_customer" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga End Customer</label>
+                                        <input type="number" name="harga_end_customer" id="harga_end_customer" value={formData.harga_end_customer} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
-                                        <label htmlFor="hargaRetail" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Retail</label>
-                                        <input type="number" name="hargaRetail" id="hargaRetail" value={formData.hargaRetail} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="harga_retail" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Retail</label>
+                                        <input type="number" name="harga_retail" id="harga_retail" value={formData.harga_retail} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
-                                        <label htmlFor="hargaGrosir" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Grosir</label>
-                                        <input type="number" name="hargaGrosir" id="hargaGrosir" value={formData.hargaGrosir} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="harga_grosir" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Grosir</label>
+                                        <input type="number" name="harga_grosir" id="harga_grosir" value={formData.harga_grosir} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
-                                        <label htmlFor="hargaReseller" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Reseller</label>
-                                        <input type="number" name="hargaReseller" id="hargaReseller" value={formData.hargaReseller} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="harga_reseller" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Reseller</label>
+                                        <input type="number" name="harga_reseller" id="harga_reseller" value={formData.harga_reseller} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
-                                        <label htmlFor="hargaCorporate" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Corporate</label>
-                                        <input type="number" name="hargaCorporate" id="hargaCorporate" value={formData.hargaCorporate} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="harga_corporate" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Corporate</label>
+                                        <input type="number" name="harga_corporate" id="harga_corporate" value={formData.harga_corporate} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                 </div>
                                 <div className="flex justify-end space-x-4 pt-4 flex-shrink-0">
                                     <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingBahan ? 'Simpan Perubahan' : 'Simpan'}</button>
+                                    <button type="submit" disabled={isLoading} className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:bg-orange-300">{isLoading ? 'Menyimpan...' : (editingBahan ? 'Simpan Perubahan' : 'Simpan')}</button>
                                 </div>
                             </form>
                         </div>

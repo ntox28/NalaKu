@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import MainContent, { HighlightItem } from './MainContent';
 import DashboardIcon from './icons/DashboardIcon';
@@ -11,29 +12,20 @@ import CustomersIcon from './icons/CustomersIcon';
 import EmployeesIcon from './icons/EmployeesIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import LogoutIcon from './icons/LogoutIcon';
-import { User } from './Login';
-import { Customer } from '../lib/supabaseClient';
-import { Bahan } from './bahan/BahanManagement';
-import { Order } from './orders/OrderManagement';
-import { Employee } from './employees/EmployeeManagement';
-import { Expense } from './expenses/ExpenseManagement';
+import { Customer, Bahan, Order, Employee, Expense } from '../lib/supabaseClient';
 import ThemeToggle from './ThemeToggle';
+import { User as AuthUser } from '@supabase/supabase-js';
 
 interface DashboardProps {
-  user: User;
+  user: AuthUser;
   onLogout: () => void;
-  users: User[];
-  onUsersUpdate: (users: User[]) => void;
+  users: AuthUser[];
   customers: Customer[];
-  onCustomersUpdate: () => void;
   bahanList: Bahan[];
-  onBahanUpdate: (bahan: Bahan[]) => void;
   employees: Employee[];
-  onEmployeesUpdate: (employees: Employee[]) => void;
   orders: Order[];
-  onOrdersUpdate: (orders: Order[] | ((orders: Order[]) => Order[])) => void;
   expenses: Expense[];
-  onExpensesUpdate: (expenses: Expense[]) => void;
+  refetchData: () => void;
 }
 
 const allMenuItems = [
@@ -45,17 +37,18 @@ const allMenuItems = [
   { name: 'Pengeluaran', icon: ExpenseIcon, roles: ['Admin', 'Kasir'] },
   { name: 'Daftar Bahan', icon: IngredientsIcon, roles: ['Admin', 'Kasir'] },
   { name: 'Daftar Pelanggan', icon: CustomersIcon, roles: ['Admin', 'Kasir'] },
-  { name: 'Daftar Karyawan', icon: EmployeesIcon, roles: ['Admin', 'Kasir'] },
+  { name: 'Daftar Karyawan', icon: EmployeesIcon, roles: ['Admin'] },
   { name: 'Pengaturan', icon: SettingsIcon, roles: ['Admin'] },
 ];
 
 const DashboardComponent: React.FC<DashboardProps> = (props) => {
   const { user, onLogout } = props;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const userRole = user.app_metadata?.userrole || 'Kasir';
 
   const visibleMenuItems = useMemo(() => {
-    return allMenuItems.filter(item => item.roles.includes(user.level));
-  }, [user.level]);
+    return allMenuItems.filter(item => item.roles.includes(userRole));
+  }, [userRole]);
 
   const [activeView, setActiveView] = useState(visibleMenuItems[0]?.name || 'Dashboard');
   const [highlightedItem, setHighlightedItem] = useState<HighlightItem | null>(null);

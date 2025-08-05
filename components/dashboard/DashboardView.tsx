@@ -1,8 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from 'recharts';
-import { Order } from '../orders/OrderManagement';
-import { Customer } from '../../lib/supabaseClient';
-import { Expense } from '../expenses/ExpenseManagement';
+import { Order, Customer, Expense } from '../../lib/supabaseClient';
 import StatCard from './StatCard';
 import OrderIcon from '../icons/OrderIcon';
 import ClipboardListIcon from '../icons/ClipboardListIcon';
@@ -44,10 +43,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
     
     // Stats Cards Data
     const totalOrders = orders.length;
-    const activeOrders = orders.filter(o => !['Lunas'].includes(o.statusPembayaran)).length;
+    const activeOrders = orders.filter(o => !['Lunas'].includes(o.status_pembayaran)).length;
     const itemsToProcess = orders
-        .flatMap(o => o.items)
-        .filter(item => item.statusProduksi !== 'Selesai').length;
+        .flatMap(o => o.order_items)
+        .filter(item => item.status_produksi !== 'Selesai').length;
     const totalCustomers = customers.length;
 
 
@@ -63,8 +62,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
     }).reverse();
 
     // Production Status Chart Data
-    const productionStatus = orders.flatMap(o => o.items).reduce((acc, item) => {
-        acc[item.statusProduksi] = (acc[item.statusProduksi] || 0) + 1;
+    const productionStatus = orders.flatMap(o => o.order_items).reduce((acc, item) => {
+        acc[item.status_produksi] = (acc[item.status_produksi] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
 
@@ -75,7 +74,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
         'Belum Dikerjakan': theme === 'dark' ? '#475569' : '#94a3b8', // slate-600 / slate-400
     };
 
-    const sortedRecentOrders = useMemo(() => [...orders].sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()), [orders]);
+    const sortedRecentOrders = useMemo(() => [...orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [orders]);
 
     const totalPages = Math.ceil(sortedRecentOrders.length / ITEMS_PER_PAGE);
     const currentOrders = sortedRecentOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -173,10 +172,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                             {currentOrders.map(order => (
                                 <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                    <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{order.noNota}</th>
-                                    <td data-label="Pelanggan" className="px-6 py-4">{customers.find(c => c.id === order.pelangganId)?.name || 'N/A'}</td>
+                                    <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{order.no_nota}</th>
+                                    <td data-label="Pelanggan" className="px-6 py-4">{customers.find(c => c.id === order.pelanggan_id)?.name || 'N/A'}</td>
                                     <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                    <td data-label="Status Bayar" className="px-6 py-4 text-right">{order.statusPembayaran}</td>
+                                    <td data-label="Status Bayar" className="px-6 py-4 text-right">{order.status_pembayaran}</td>
                                 </tr>
                             ))}
                         </tbody>

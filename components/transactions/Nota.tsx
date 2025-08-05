@@ -1,17 +1,15 @@
+
 import React, { forwardRef } from 'react';
-import { Customer } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
-import { Order } from '../orders/OrderManagement';
-import { User } from '../Login';
-import { Employee } from '../employees/EmployeeManagement';
+import { Customer, Bahan, Order, Employee, CustomerLevel } from '../../lib/supabaseClient';
+import { User as AuthUser } from '@supabase/supabase-js';
 
 interface NotaProps {
   order: Order;
   customers: Customer[];
   bahanList: Bahan[];
-  users: User[];
+  users: AuthUser[];
   employees: Employee[];
-  loggedInUser: User;
+  loggedInUser: AuthUser;
   calculateTotal: (order: Order) => number;
 }
 
@@ -34,13 +32,13 @@ const formatDate = (isoDate: string) => {
   });
 };
 
-const getPriceForCustomer = (bahan: Bahan, level: Customer['level']): number => {
+const getPriceForCustomer = (bahan: Bahan, level: CustomerLevel): number => {
   switch (level) {
-    case 'End Customer': return bahan.hargaEndCustomer;
-    case 'Retail': return bahan.hargaRetail;
-    case 'Grosir': return bahan.hargaGrosir;
-    case 'Reseller': return bahan.hargaReseller;
-    case 'Corporate': return bahan.hargaCorporate;
+    case 'End Customer': return bahan.harga_end_customer;
+    case 'Retail': return bahan.harga_retail;
+    case 'Grosir': return bahan.harga_grosir;
+    case 'Reseller': return bahan.harga_reseller;
+    case 'Corporate': return bahan.harga_corporate;
     default: return 0;
   }
 };
@@ -49,20 +47,20 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({
   order, customers, bahanList, users, employees, loggedInUser, calculateTotal
 }, ref) => {
 
-  const customer = customers.find(c => c.id === order.pelangganId);
+  const customer = customers.find(c => c.id === order.pelanggan_id);
   const totalTagihan = calculateTotal(order);
   const totalPaid = order.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
   const getEmployeeNameByUserId = (userId: string | null | undefined): string => {
     if (!userId) return 'N/A';
     const user = users.find(u => u.id === userId);
-    if (!user) return userId;
-    const employee = employees.find(e => e.id === user.employeeId);
-    return employee ? employee.name : userId;
+    if (!user) return 'User Dihapus';
+    const employee = employees.find(e => e.user_id === user.id);
+    return employee ? employee.name : (user.email || 'N/A');
   };
 
   const lastPayment = order.payments?.length > 0 ? order.payments[order.payments.length - 1] : null;
-  const kasirName = lastPayment ? getEmployeeNameByUserId(lastPayment.kasirId) : getEmployeeNameByUserId(loggedInUser.id);
+  const kasirName = lastPayment ? getEmployeeNameByUserId(lastPayment.kasir_id) : getEmployeeNameByUserId(loggedInUser.id);
 
   return (
     <div ref={ref} className="nota-dot-matrix bg-white text-black p-4 font-sans text-xs">
@@ -76,7 +74,7 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({
 
       {/* Informasi Nota */}
       <div className="nota-info">
-        <span>No Nota: {order.noNota}</span>
+        <span>No Nota: {order.no_nota}</span>
         <span>Tanggal: {formatDate(order.tanggal)}</span>
       </div>
       <div className="nota-info">
@@ -97,21 +95,21 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({
         </div>
         <hr className="my-1 border-dashed border-black" />
 
-        {order.items?.map((item, index) => {
-          const bahan = bahanList.find(b => b.id === item.bahanId);
+        {order.order_items?.map((item, index) => {
+          const bahan = bahanList.find(b => b.id === item.bahan_id);
           if (!bahan || !customer) return null;
 
           const hargaSatuan = getPriceForCustomer(bahan, customer.level);
-          const area = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+          const area = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
           const jumlah = hargaSatuan * area * item.qty;
 
           return (
             <div key={item.id} className="flex items-start py-0.5">
               <div className="w-[10%] pr-1">{index + 1}.</div>
-              <div className="w-[35%] pr-1 break-words">{item.deskripsiPesanan || '-'}</div>
+              <div className="w-[35%] pr-1 break-words">{item.deskripsi_pesanan || '-'}</div>
               <div className="w-[20%] pr-1 break-words">{bahan.name}</div>
               <div className="w-[15%] text-center pr-1">
-                {item.panjang > 0 ? `${item.panjang}x${item.lebar}m` : '-'}
+                {(item.panjang || 0) > 0 ? `${item.panjang}x${item.lebar}m` : '-'}
               </div>
               <div className="w-[20%] text-right">{formatCurrencyDotMatrix(jumlah)}</div>
             </div>
@@ -133,8 +131,8 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({
             <hr className="my-1 border-dashed border-black" />
             {order.payments.map((payment, index) => (
               <div key={index} className="flex items-start py-0.5 text-[9px]">
-                <div className="w-[35%]">{formatDate(payment.date)}</div>
-                <div className="w-[35%] capitalize">{getEmployeeNameByUserId(payment.kasirId)}</div>
+                <div className="w-[35%]">{formatDate(payment.payment_date)}</div>
+                <div className="w-[35%] capitalize">{getEmployeeNameByUserId(payment.kasir_id)}</div>
                 <div className="w-[30%] text-right">{formatCurrencyDotMatrix(payment.amount)}</div>
               </div>
             ))}

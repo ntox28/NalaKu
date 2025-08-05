@@ -1,11 +1,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
-import { Order } from '../orders/OrderManagement';
-import { Customer, CustomerLevel } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
-import { Expense } from '../expenses/ExpenseManagement';
-import { User } from '../Login';
+import { Order, Customer, CustomerLevel, Bahan, Expense } from '../../lib/supabaseClient';
+import { User as AuthUser } from '@supabase/supabase-js';
 import StatCard from '../dashboard/StatCard';
 import TrendingUpIcon from '../icons/TrendingUpIcon';
 import TrendingDownIcon from '../icons/TrendingDownIcon';
@@ -21,7 +18,7 @@ interface FinanceViewProps {
     expenses: Expense[];
     customers: Customer[];
     bahanList: Bahan[];
-    users: User[];
+    users: AuthUser[];
 }
 
 const formatCurrency = (value: number) => {
@@ -35,25 +32,25 @@ const formatCurrency = (value: number) => {
 
 const getPriceForCustomer = (bahan: Bahan, level: CustomerLevel): number => {
     switch (level) {
-        case 'End Customer': return bahan.hargaEndCustomer;
-        case 'Retail': return bahan.hargaRetail;
-        case 'Grosir': return bahan.hargaGrosir;
-        case 'Reseller': return bahan.hargaReseller;
-        case 'Corporate': return bahan.hargaCorporate;
+        case 'End Customer': return bahan.harga_end_customer;
+        case 'Retail': return bahan.harga_retail;
+        case 'Grosir': return bahan.harga_grosir;
+        case 'Reseller': return bahan.harga_reseller;
+        case 'Corporate': return bahan.harga_corporate;
         default: return 0;
     }
 };
 
 const calculateOrderTotal = (order: Order, customers: Customer[], bahanList: Bahan[]): number => {
-    const customer = customers.find(c => c.id === order.pelangganId);
+    const customer = customers.find(c => c.id === order.pelanggan_id);
     if (!customer) return 0;
 
-    return order.items.reduce((total, item) => {
-        const bahan = bahanList.find(b => b.id === item.bahanId);
+    return order.order_items.reduce((total, item) => {
+        const bahan = bahanList.find(b => b.id === item.bahan_id);
         if (!bahan) return total;
 
         const price = getPriceForCustomer(bahan, customer.level);
-        const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+        const itemArea = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
         const itemTotal = price * itemArea * item.qty;
         return total + itemTotal;
     }, 0);
@@ -74,7 +71,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
             const netProfit = totalRevenue - totalExpenses;
             
             const totalReceivables = props.orders.reduce((sum, order) => {
-                if (order.statusPembayaran === 'Lunas') return sum;
+                if (order.status_pembayaran === 'Lunas') return sum;
                 const totalTagihan = calculateOrderTotal(order, props.customers, props.bahanList);
                 const totalPaid = order.payments.reduce((acc, p) => acc + p.amount, 0);
                 return sum + (totalTagihan - totalPaid);
@@ -83,7 +80,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
             const dataByDate: Record<string, { revenue: number, expense: number }> = {};
             
             props.orders.flatMap(o => o.payments).forEach(payment => {
-                const date = payment.date;
+                const date = payment.payment_date;
                 if (!dataByDate[date]) dataByDate[date] = { revenue: 0, expense: 0 };
                 dataByDate[date].revenue += payment.amount;
             });
@@ -109,13 +106,13 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
         const recentTransactions = useMemo(() => {
             return props.orders
                 .flatMap(order => {
-                    const customer = props.customers.find(c => c.id === order.pelangganId);
-                    return order.payments.map((p, index) => ({
-                        orderNoNota: order.noNota,
+                    const customer = props.customers.find(c => c.id === order.pelanggan_id);
+                    return order.payments.map((p) => ({
+                        orderNoNota: order.no_nota,
                         customerName: customer?.name || 'N/A',
                         amount: p.amount,
-                        date: p.date,
-                        id: `${order.id}-${index}`
+                        date: p.payment_date,
+                        id: p.id
                     }));
                 })
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -197,7 +194,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
                                     {currentExpenses.map(exp => (
                                         <tr key={exp.id}>
                                             <td className="py-3">
-                                                <p className="font-medium text-slate-900 dark:text-slate-100">{exp.jenisPengeluaran}</p>
+                                                <p className="font-medium text-slate-900 dark:text-slate-100">{exp.jenis_pengeluaran}</p>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(exp.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'long'})}</p>
                                             </td>
                                             <td className="py-3 text-right font-semibold text-red-600 dark:text-red-400">{formatCurrency(exp.harga * exp.qty)}</td>

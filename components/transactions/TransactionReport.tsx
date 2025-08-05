@@ -1,7 +1,6 @@
+
 import React, { forwardRef } from 'react';
-import { Order } from '../orders/OrderManagement';
-import { Customer } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
+import { Order, Customer, Bahan } from '../../lib/supabaseClient';
 
 interface TransactionReportProps {
   orders: Order[];
@@ -58,16 +57,16 @@ const TransactionReport = forwardRef<HTMLDivElement, TransactionReportProps>(
           </thead>
           <tbody>
             {orders.map((order) => {
-              const customer = customers.find(c => c.id === order.pelangganId);
+              const customer = customers.find(c => c.id === order.pelanggan_id);
               const orderTotal = calculateTotal(order);
 
               return (
                 <tr key={order.id} className="border-b border-black">
-                  <td className="p-1 border border-black">{order.noNota}</td>
+                  <td className="p-1 border border-black">{order.no_nota}</td>
                   <td className="p-1 border border-black">{formatDate(order.tanggal)}</td>
                   <td className="p-1 border border-black">{customer?.name || 'N/A'}</td>
                   <td className="p-1 text-right border border-black">{formatCurrency(orderTotal)}</td>
-                  <td className="p-1 text-center border border-black">{order.statusPembayaran}</td>
+                  <td className="p-1 text-center border border-black">{order.status_pembayaran}</td>
                 </tr>
               );
             })}

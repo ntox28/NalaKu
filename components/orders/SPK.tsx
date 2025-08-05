@@ -1,7 +1,7 @@
+
 import React, { forwardRef } from 'react';
-import { Order } from './OrderManagement';
-import { Customer } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
+import { Order, Customer, Bahan } from '../../lib/supabaseClient';
+
 
 interface SPKProps {
     order: Order;
@@ -25,7 +25,7 @@ const SPK = forwardRef<HTMLDivElement, SPKProps>(({ order, customer, bahanList }
             </div>
             <hr className="border-dashed border-black my-0.5" />
             <div className="text-center text-[10px] leading-tight">
-                <p>Nota: {order.noNota} | {customer?.name || 'N/A'}</p>
+                <p>Nota: {order.no_nota} | {customer?.name || 'N/A'}</p>
                 <p>Tanggal Masuk: {formatDateForSPK(order.tanggal)}</p>
             </div>
 
@@ -40,10 +40,10 @@ const SPK = forwardRef<HTMLDivElement, SPKProps>(({ order, customer, bahanList }
 
             {/* Items List */}
             <div className="mt-0.5">
-                {order.items.map((item, index) => {
-                    const bahan = bahanList.find(b => b.id === item.bahanId);
-                    const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}x${item.lebar}` : '-';
-                    const deskripsi = item.deskripsiPesanan || '-';
+                {order.order_items.map((item, index) => {
+                    const bahan = bahanList.find(b => b.id === item.bahan_id);
+                    const ukuran = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? `${item.panjang}x${item.lebar}` : '-';
+                    const deskripsi = item.deskripsi_pesanan || '-';
                     const qty = `${item.qty}Pcs`;
                     const finishing = item.finishing || '-';
 

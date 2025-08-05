@@ -1,10 +1,8 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
-import { Customer, CustomerLevel } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
-import { Order, OrderItem, Payment, PaymentStatus, ProductionStatus } from '../orders/OrderManagement';
-import { User } from '../Login';
+import { Customer, CustomerLevel, Bahan, Order, Payment, PaymentStatus, ProductionStatus, supabase, Employee } from '../../lib/supabaseClient';
+import { User as AuthUser } from '@supabase/supabase-js';
 import PrintIcon from '../icons/PrintIcon';
 import WhatsAppIcon from '../icons/WhatsAppIcon';
 import ImageIcon from '../icons/ImageIcon';
@@ -19,15 +17,14 @@ import Struk from './Struk';
 import ReceiptIcon from '../icons/ReceiptIcon';
 import { useToast } from '../../hooks/useToast';
 import TransactionReport from './TransactionReport';
-import { Employee } from '../employees/EmployeeManagement';
 
 interface TransactionManagementProps {
     orders: Order[];
-    onUpdate: (updatedOrders: Order[]) => void;
+    onUpdate: () => void;
     customers: Customer[];
     bahanList: Bahan[];
-    loggedInUser: User;
-    users: User[];
+    loggedInUser: AuthUser;
+    users: AuthUser[];
     employees: Employee[];
     highlightedItem?: { view: string; id: number | string } | null;
     clearHighlightedItem?: () => void;
@@ -61,11 +58,11 @@ const getProductionStatusColor = (status: ProductionStatus) => {
 
 const getPriceForCustomer = (bahan: Bahan, level: CustomerLevel): number => {
     switch (level) {
-        case 'End Customer': return bahan.hargaEndCustomer;
-        case 'Retail': return bahan.hargaRetail;
-        case 'Grosir': return bahan.hargaGrosir;
-        case 'Reseller': return bahan.hargaReseller;
-        case 'Corporate': return bahan.hargaCorporate;
+        case 'End Customer': return bahan.harga_end_customer;
+        case 'Retail': return bahan.harga_retail;
+        case 'Grosir': return bahan.harga_grosir;
+        case 'Reseller': return bahan.harga_reseller;
+        case 'Corporate': return bahan.harga_corporate;
         default: return 0;
     }
 };
@@ -99,15 +96,15 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
     });
 
     const calculateTotal = (order: Order): number => {
-        const customer = customers.find(c => c.id === order.pelangganId);
+        const customer = customers.find(c => c.id === order.pelanggan_id);
         if (!customer) return 0;
 
-        return order.items.reduce((total, item) => {
-            const bahan = bahanList.find(b => b.id === item.bahanId);
+        return order.order_items.reduce((total, item) => {
+            const bahan = bahanList.find(b => b.id === item.bahan_id);
             if (!bahan) return total;
 
             const price = getPriceForCustomer(bahan, customer.level);
-            const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+            const itemArea = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
             const itemTotal = price * itemArea * item.qty;
             return total + itemTotal;
         }, 0);
@@ -117,13 +114,13 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
         const todayStr = new Date().toISOString().split('T')[0];
 
         const revenueToday = orders.flatMap(o => o.payments)
-            .filter(p => p.date === todayStr)
+            .filter(p => p.payment_date === todayStr)
             .reduce((sum, p) => sum + p.amount, 0);
         
         const todaysOrders = orders.filter(o => o.tanggal === todayStr);
 
         const unpaidToday = todaysOrders
-            .filter(o => o.statusPembayaran !== 'Lunas')
+            .filter(o => o.status_pembayaran !== 'Lunas')
             .reduce((sum, o) => {
                 const total = calculateTotal(o);
                 const paid = calculateTotalPaid(o);
@@ -138,22 +135,22 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
     const transactions = useMemo(() => {
         return orders
             .filter(order => {
-                if (order.statusPesanan !== 'Proses') return false;
+                if (order.status_pesanan !== 'Proses') return false;
 
-                const customerMatch = filters.customerId === 'all' || order.pelangganId === Number(filters.customerId);
+                const customerMatch = filters.customerId === 'all' || order.pelanggan_id === Number(filters.customerId);
                 const startDateMatch = !filters.startDate || order.tanggal >= filters.startDate;
                 const endDateMatch = !filters.endDate || order.tanggal <= filters.endDate;
-                const statusMatch = filters.status === 'all' || order.statusPembayaran === filters.status;
+                const statusMatch = filters.status === 'all' || order.status_pembayaran === filters.status;
                 
                 return customerMatch && startDateMatch && endDateMatch && statusMatch;
             })
-            .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }, [orders, filters]);
 
     const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
     const currentTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    useEffect(() => {
+     useEffect(() => {
         if (highlightedItem && (highlightedItem.view === 'Transaksi' || highlightedItem.view === 'Order' || highlightedItem.view === 'Produksi') && clearHighlightedItem) {
             const { id } = highlightedItem;
             
@@ -224,7 +221,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
         setNewPaymentAmount(0);
     };
 
-    const handlePaymentSubmit = () => {
+    const handlePaymentSubmit = async () => {
         if (!selectedOrder || newPaymentAmount <= 0) {
             addToast('Jumlah pembayaran harus lebih besar dari 0.', 'error');
             return;
@@ -236,30 +233,43 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
 
         const newStatus: PaymentStatus = newTotalPaid >= totalTagihan ? 'Lunas' : 'Belum Lunas';
 
-        const newPayment: Payment = {
+        const newPayment: Omit<Payment, 'id' | 'created_at'> = {
+            order_id: selectedOrder.id,
             amount: newPaymentAmount,
-            date: newPaymentDate,
-            kasirId: loggedInUser.id,
+            payment_date: newPaymentDate,
+            kasir_id: loggedInUser.id,
         };
 
-        const updatedOrder: Order = {
-            ...selectedOrder,
-            payments: [...selectedOrder.payments, newPayment],
-            statusPembayaran: newStatus,
-        };
+        const { error: paymentError } = await supabase.from('payments').insert(newPayment);
+        
+        if (paymentError) {
+            addToast(`Gagal menyimpan pembayaran: ${paymentError.message}`, 'error');
+            return;
+        }
 
-        onUpdate(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-        addToast(`Pembayaran sebesar ${formatCurrency(newPaymentAmount)} berhasil ditambahkan.`, 'success');
+        const { error: orderUpdateError } = await supabase
+            .from('orders')
+            .update({ status_pembayaran: newStatus })
+            .eq('id', selectedOrder.id);
+        
+        if (orderUpdateError) {
+             addToast(`Pembayaran disimpan, tapi gagal update status order: ${orderUpdateError.message}`, 'error');
+        } else {
+            addToast(`Pembayaran sebesar ${formatCurrency(newPaymentAmount)} berhasil ditambahkan.`, 'success');
+        }
+        
+        onUpdate();
         handleCloseModal();
     };
 
     const getKasirName = (order: Order) => {
         if (!order.payments || order.payments.length === 0) return '-';
         const lastPayment = order.payments[order.payments.length - 1];
-        const user = users.find(u => u.id === lastPayment.kasirId);
-        if (!user) return lastPayment.kasirId;
-        const employee = employees.find(e => e.id === user.employeeId);
-        return employee ? employee.name : user.id;
+        if (!lastPayment.kasir_id) return 'N/A';
+        const user = users.find(u => u.id === lastPayment.kasir_id);
+        if (!user) return 'User Dihapus';
+        const employee = employees.find(e => e.user_id === user.id);
+        return employee ? employee.name : (user.email || 'N/A');
     };
     
     const handlePrint = () => {
@@ -372,7 +382,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
             addToast('Menyimpan nota sebagai gambar...', 'info');
             html2canvas(notaRef.current, {scale: 2, backgroundColor: '#ffffff'}).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `nota-${selectedOrder.noNota}.png`;
+                link.download = `nota-${selectedOrder.no_nota}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
             });
@@ -381,17 +391,17 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
     
     const handleSendWhatsApp = () => {
         if(!selectedOrder) return;
-        const customer = customers.find(c => c.id === selectedOrder.pelangganId);
+        const customer = customers.find(c => c.id === selectedOrder.pelanggan_id);
         const totalTagihan = calculateTotal(selectedOrder);
         const totalPaid = calculateTotalPaid(selectedOrder);
         const kasir = getKasirName(selectedOrder);
         
         let itemsList = '';
-        selectedOrder.items.forEach(item => {
-            const bahan = bahanList.find(b => b.id === item.bahanId);
+        selectedOrder.order_items.forEach(item => {
+            const bahan = bahanList.find(b => b.id === item.bahan_id);
             if (!bahan || !customer) return;
             const hargaSatuan = getPriceForCustomer(bahan, customer.level);
-            const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+            const itemArea = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
             const jumlah = hargaSatuan * itemArea * item.qty;
 
             itemsList += `${bahan.name}\\n`;
@@ -399,7 +409,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
         });
         
         let message = `*NalaKu*\\nJl. Prof. Moh. Yamin,Cerbonan,Karanganyar\\n(Timur Stadion 45)\\nTelp: 0812-3456-7890\\n--------------------------------\\n`;
-        message += `No Nota  : ${selectedOrder.noNota}\\n`;
+        message += `No Nota  : ${selectedOrder.no_nota}\\n`;
         message += `Tanggal  : ${new Date(selectedOrder.tanggal).toLocaleString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})}\\n`;
         message += `Kasir    : ${kasir}\\n`;
         message += `Pelanggan: ${customer?.name || 'N/A'}\\n`;
@@ -494,16 +504,16 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
                                             className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
                                             ref={el => { itemRefs.current[order.id] = el; }}
                                         >
-                                            <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
-                                            <td data-label="Pelanggan" className="px-6 py-4">{customers.find(c => c.id === order.pelangganId)?.name || 'N/A'}</td>
+                                            <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.no_nota}</th>
+                                            <td data-label="Pelanggan" className="px-6 py-4">{customers.find(c => c.id === order.pelanggan_id)?.name || 'N/A'}</td>
                                             <td data-label="Kasir" className="px-6 py-4 capitalize">{getKasirName(order)}</td>
                                             <td data-label="Total Tagihan" className="px-6 py-4 text-right font-semibold">{formatCurrency(total)}</td>
                                             <td data-label="Status Pembayaran" className="px-6 py-4 text-center">
                                                 <button 
-                                                    onClick={() => order.statusPembayaran !== 'Lunas' && handleOpenModal(order)}
-                                                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-transform duration-200 ${getPaymentStatusColor(order.statusPembayaran)} ${order.statusPembayaran !== 'Lunas' ? 'cursor-pointer hover:scale-105' : 'cursor-default'}`}
+                                                    onClick={() => order.status_pembayaran !== 'Lunas' && handleOpenModal(order)}
+                                                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-transform duration-200 ${getPaymentStatusColor(order.status_pembayaran)} ${order.status_pembayaran !== 'Lunas' ? 'cursor-pointer hover:scale-105' : 'cursor-default'}`}
                                                 >
-                                                    {order.statusPembayaran}
+                                                    {order.status_pembayaran}
                                                 </button>
                                             </td>
                                             <td data-label="Aksi" className="px-6 py-4 text-center">
@@ -552,7 +562,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50" onClick={handleCloseModal}>
                         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 m-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                             <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2 flex-shrink-0">Proses Pembayaran</h3>
-                            <p className="text-slate-500 dark:text-slate-400 mb-6 flex-shrink-0">No. Nota: <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedOrder.noNota}</span></p>
+                            <p className="text-slate-500 dark:text-slate-400 mb-6 flex-shrink-0">No. Nota: <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedOrder.no_nota}</span></p>
                             
                             <div className="flex-1 overflow-y-auto pr-2 -mr-4 space-y-4">
                                 <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
@@ -565,20 +575,20 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                                            {selectedOrder.items.map(item => {
-                                                const customer = customers.find(c => c.id === selectedOrder.pelangganId);
-                                                const bahan = bahanList.find(b => b.id === item.bahanId);
+                                            {selectedOrder.order_items.map(item => {
+                                                const customer = customers.find(c => c.id === selectedOrder.pelanggan_id);
+                                                const bahan = bahanList.find(b => b.id === item.bahan_id);
                                                 if(!customer || !bahan) return null;
                                                 const price = getPriceForCustomer(bahan, customer.level);
-                                                const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+                                                const itemArea = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
                                                 const itemTotal = price * itemArea * item.qty;
-                                                const statusColor = getProductionStatusColor(item.statusProduksi);
+                                                const statusColor = getProductionStatusColor(item.status_produksi);
                                                 return (
                                                     <tr key={item.id}>
                                                         <td className="py-2 text-slate-800 dark:text-slate-200">{bahan.name} ({item.qty}x)</td>
                                                         <td className="py-2 text-center">
                                                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>
-                                                                {item.statusProduksi}
+                                                                {item.status_produksi}
                                                             </span>
                                                         </td>
                                                         <td className="py-2 text-right text-slate-800 dark:text-slate-200">{formatCurrency(itemTotal)}</td>

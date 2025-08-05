@@ -1,61 +1,19 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PrintIcon from '../icons/PrintIcon';
-import { Customer, CustomerLevel } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
+import { Customer, CustomerLevel, Bahan, Order, OrderItem, supabase } from '../../lib/supabaseClient';
 import ChevronDownIcon from '../icons/ChevronDownIcon';
 import Pagination from '../Pagination';
 import FilterBar from '../FilterBar';
 import { useToast } from '../../hooks/useToast';
 import SPK from './SPK';
-import { User } from '../Login';
+import { User as AuthUser } from '@supabase/supabase-js';
 import PlayCircleIcon from '../icons/PlayCircleIcon';
 
-export type ProductionStatus = 'Belum Dikerjakan' | 'Proses' | 'Selesai';
-export type PaymentStatus = 'Belum Lunas' | 'Lunas';
-export type OrderStatus = 'Pending' | 'Proses';
-
-export interface OrderItem {
-    id: number;
-    bahanId: number | '';
-    deskripsiPesanan: string;
-    panjang: number;
-    lebar: number;
-    qty: number;
-    statusProduksi: ProductionStatus;
-    finishing: string;
-}
-
-export interface Payment {
-    amount: number;
-    date: string;
-    kasirId: string;
-}
-
-export interface Order {
-    id: number;
-    noNota: string;
-    tanggal: string;
-    pelangganId: number | '';
-    items: OrderItem[];
-    pelaksanaId: string | null;
-    statusPembayaran: PaymentStatus;
-    statusPesanan: OrderStatus;
-    payments: Payment[];
-}
-
-interface OrderManagementProps {
-    customers: Customer[];
-    bahanList: Bahan[];
-    orders: Order[];
-    onUpdate: (updatedOrders: Order[] | ((orders: Order[]) => Order[])) => void;
-    loggedInUser: User;
-    highlightedItem?: { view: string; id: number | string } | null;
-    clearHighlightedItem?: () => void;
-}
+type LocalOrderItem = Omit<OrderItem, 'id' | 'created_at' | 'order_id'> & { local_id: number };
+type LocalOrder = Omit<Order, 'id' | 'created_at' | 'order_items' | 'payments'> & { order_items: LocalOrderItem[] };
 
 const formatDate = (isoDate: string) => {
     return new Date(isoDate).toLocaleDateString('id-ID', {
@@ -65,16 +23,15 @@ const formatDate = (isoDate: string) => {
     });
 };
 
-const emptyItem: Omit<OrderItem, 'id'> = { bahanId: '', deskripsiPesanan: '', panjang: 0, lebar: 0, qty: 1, statusProduksi: 'Belum Dikerjakan', finishing: '' };
-const emptyOrder: Omit<Order, 'id'> = {
-    noNota: '',
+const emptyItem: Omit<LocalOrderItem, 'local_id'> = { bahan_id: 0, deskripsi_pesanan: '', panjang: 0, lebar: 0, qty: 1, status_produksi: 'Belum Dikerjakan', finishing: '' };
+const emptyOrder: LocalOrder = {
+    no_nota: '',
     tanggal: new Date().toISOString().split('T')[0],
-    pelangganId: '',
-    items: [{ ...emptyItem, id: Date.now() }],
-    pelaksanaId: null,
-    statusPembayaran: 'Belum Lunas',
-    statusPesanan: 'Pending',
-    payments: [],
+    pelanggan_id: 0,
+    order_items: [{ ...emptyItem, local_id: Date.now() }],
+    pelaksana_id: null,
+    status_pembayaran: 'Belum Lunas',
+    status_pesanan: 'Pending',
 };
 
 const CopyIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -94,36 +51,47 @@ const formatCurrency = (value: number) => {
 
 const getPriceForCustomer = (bahan: Bahan, level: CustomerLevel): number => {
     switch (level) {
-        case 'End Customer': return bahan.hargaEndCustomer;
-        case 'Retail': return bahan.hargaRetail;
-        case 'Grosir': return bahan.hargaGrosir;
-        case 'Reseller': return bahan.hargaReseller;
-        case 'Corporate': return bahan.hargaCorporate;
+        case 'End Customer': return bahan.harga_end_customer;
+        case 'Retail': return bahan.harga_retail;
+        case 'Grosir': return bahan.harga_grosir;
+        case 'Reseller': return bahan.harga_reseller;
+        case 'Corporate': return bahan.harga_corporate;
         default: return 0;
     }
 };
 
-const calculateTotal = (order: Omit<Order, 'id'>, customers: Customer[], bahanList: Bahan[]): number => {
-    const customer = customers.find(c => c.id === order.pelangganId);
+const calculateTotal = (order: Order | LocalOrder, customers: Customer[], bahanList: Bahan[]): number => {
+    const customer = customers.find(c => c.id === order.pelanggan_id);
     if (!customer) return 0;
 
-    return order.items.reduce((total, item) => {
-        const bahan = bahanList.find(b => b.id === item.bahanId);
-        if (!bahan || !item.bahanId) return total;
+    return order.order_items.reduce((total, item) => {
+        const bahan = bahanList.find(b => b.id === item.bahan_id);
+        if (!bahan || !item.bahan_id) return total;
 
         const price = getPriceForCustomer(bahan, customer.level);
-        const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+        const itemArea = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
         const itemTotal = price * itemArea * item.qty;
         return total + itemTotal;
     }, 0);
 };
 
+interface OrderManagementProps {
+    customers: Customer[];
+    bahanList: Bahan[];
+    orders: Order[];
+    onUpdate: () => void;
+    loggedInUser: AuthUser;
+    highlightedItem?: { view: string; id: number | string } | null;
+    clearHighlightedItem?: () => void;
+}
+
 const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList, orders, onUpdate, loggedInUser, highlightedItem, clearHighlightedItem }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-    const [formData, setFormData] = useState<Omit<Order, 'id'>>(emptyOrder);
+    const [formData, setFormData] = useState<LocalOrder>(emptyOrder);
     const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
     
@@ -139,26 +107,26 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     });
 
     const modalOrderTotal = useMemo(() => {
-        if (!formData.pelangganId) return 0;
+        if (!formData.pelanggan_id) return 0;
         return calculateTotal(formData, customers, bahanList);
     }, [formData, customers, bahanList]);
 
     const filteredOrders = useMemo(() => {
         return orders
             .filter(order => {
-                const customerMatch = filters.customerId === 'all' || order.pelangganId === Number(filters.customerId);
+                const customerMatch = filters.customerId === 'all' || order.pelanggan_id === Number(filters.customerId);
                 const startDateMatch = !filters.startDate || order.tanggal >= filters.startDate;
                 const endDateMatch = !filters.endDate || order.tanggal <= filters.endDate;
-                const statusMatch = filters.status === 'all' || order.statusPembayaran === filters.status;
+                const statusMatch = filters.status === 'all' || order.status_pembayaran === filters.status;
                 return customerMatch && startDateMatch && endDateMatch && statusMatch;
             })
-            .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }, [orders, filters]);
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
     const currentOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    useEffect(() => {
+     useEffect(() => {
         if (highlightedItem && (highlightedItem.view === 'Order' || highlightedItem.view === 'Transaksi' || highlightedItem.view === 'Produksi') && clearHighlightedItem) {
             const { id } = highlightedItem;
             
@@ -189,9 +157,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     useEffect(() => {
         if (isModalOpen) {
             if (editingOrder) {
-                setFormData(JSON.parse(JSON.stringify(editingOrder)));
+                setFormData({
+                    ...editingOrder,
+                    order_items: editingOrder.order_items.map(item => ({...item, local_id: item.id}))
+                });
             } else {
-                setFormData({ ...emptyOrder, items: [{ ...emptyItem, id: Date.now() }] });
+                setFormData({ ...emptyOrder, order_items: [{ ...emptyItem, local_id: Date.now() }] });
             }
         }
     }, [isModalOpen, editingOrder]);
@@ -228,16 +199,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
         const { name, value } = e.target;
         setFormData(prev => ({ 
             ...prev, 
-            [name]: name === 'pelangganId' ? Number(value) : value 
+            [name]: name === 'pelanggan_id' ? Number(value) : value 
         }));
     };
 
     const handleItemChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
-        const newItems = [...formData.items];
+        const newItems = [...formData.order_items];
         const itemToUpdate = { ...newItems[index] };
         
-        const numericFields = ['bahanId', 'qty', 'panjang', 'lebar'];
+        const numericFields = ['bahan_id', 'qty', 'panjang', 'lebar'];
         if (numericFields.includes(name)) {
              (itemToUpdate as any)[name] = Number(value);
         } else {
@@ -245,77 +216,138 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
         }
 
         newItems[index] = itemToUpdate;
-        setFormData(prev => ({ ...prev, items: newItems }));
+        setFormData(prev => ({ ...prev, order_items: newItems }));
     };
 
     const addItem = () => {
-        setFormData(prev => ({ ...prev, items: [...prev.items, { ...emptyItem, id: Date.now() }] }));
+        setFormData(prev => ({ ...prev, order_items: [...prev.order_items, { ...emptyItem, local_id: Date.now() }] }));
     };
 
     const removeItem = (index: number) => {
-        if (formData.items.length <= 1) {
+        if (formData.order_items.length <= 1) {
              addToast('Pesanan harus memiliki minimal satu item.', 'error');
             return;
         };
-        const newItems = formData.items.filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, items: newItems }));
+        const newItems = formData.order_items.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, order_items: newItems }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingOrder) {
-            const updatedOrderData = { 
-                ...formData, 
-                id: editingOrder.id, 
-                payments: editingOrder.payments, 
-                statusPembayaran: editingOrder.statusPembayaran,
-                statusPesanan: editingOrder.statusPesanan // Preserve existing status
-            };
-            onUpdate(orders.map(o => o.id === editingOrder.id ? updatedOrderData : o));
-            addToast('Order berhasil diperbarui!', 'success');
-        } else {
-            const newOrder: Order = { 
-                ...formData, 
-                id: Date.now(), 
-                payments: [], 
-                statusPembayaran: 'Belum Lunas',
-                statusPesanan: 'Pending'
-            };
-            const updatedOrders = [...orders, newOrder];
-            onUpdate(updatedOrders);
-            setCurrentPage(1); // Go to the first page to see the newest item
-            addToast('Order berhasil ditambahkan!', 'success');
+        setIsLoading(true);
+
+        const { order_items, ...orderData } = formData;
+        
+        if (!orderData.pelanggan_id) {
+            addToast('Pelanggan harus dipilih.', 'error');
+            setIsLoading(false);
+            return;
         }
-        handleCloseModal();
+        
+        if (editingOrder) {
+            // Update logic
+            const { error: orderError } = await supabase
+                .from('orders')
+                .update(orderData)
+                .eq('id', editingOrder.id);
+            
+            if (orderError) {
+                addToast(`Gagal memperbarui order: ${orderError.message}`, 'error');
+                setIsLoading(false);
+                return;
+            }
+
+            // Simple update: delete all items and re-insert
+            const { error: deleteError } = await supabase.from('order_items').delete().eq('order_id', editingOrder.id);
+            if (deleteError) {
+                addToast(`Gagal menghapus item lama: ${deleteError.message}`, 'error');
+                setIsLoading(false);
+                return;
+            }
+            
+            const newItemsToInsert = order_items.map(item => {
+                const { local_id, ...rest } = item;
+                return { ...rest, order_id: editingOrder.id };
+            });
+
+            const { error: itemsError } = await supabase.from('order_items').insert(newItemsToInsert);
+
+            if(itemsError) {
+                 addToast(`Gagal memperbarui item: ${itemsError.message}`, 'error');
+            } else {
+                 addToast('Order berhasil diperbarui!', 'success');
+                 onUpdate();
+                 handleCloseModal();
+            }
+
+        } else {
+            // Create new order
+            const { data: newOrderData, error: orderError } = await supabase
+                .from('orders')
+                .insert(orderData)
+                .select()
+                .single();
+
+            if (orderError || !newOrderData) {
+                addToast(`Gagal membuat order baru: ${orderError?.message}`, 'error');
+                setIsLoading(false);
+                return;
+            }
+
+            const itemsToInsert = order_items.map(item => {
+                const { local_id, ...rest } = item;
+                return { ...rest, order_id: newOrderData.id };
+            });
+
+            const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+
+            if(itemsError) {
+                addToast(`Order dibuat, tapi gagal menambahkan item: ${itemsError.message}`, 'error');
+            } else {
+                addToast('Order berhasil ditambahkan!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
+        }
+        setIsLoading(false);
     };
     
-    const handleProcessOrder = (orderId: number) => {
+    const handleProcessOrder = async (orderId: number) => {
         const orderToProcess = orders.find(o => o.id === orderId);
         if (!orderToProcess) return;
 
-        if (window.confirm(`Proses pesanan untuk Nota ${orderToProcess.noNota}? Anda akan ditetapkan sebagai pelaksana.`)) {
-            onUpdate(currentOrders => 
-                currentOrders.map(order =>
-                    order.id === orderId
-                        ? { ...order, statusPesanan: 'Proses', pelaksanaId: loggedInUser.id }
-                        : order
-                )
-            );
-            addToast(`Pesanan ${orderToProcess.noNota} telah diproses.`, 'success');
+        if (window.confirm(`Proses pesanan untuk Nota ${orderToProcess.no_nota}? Anda akan ditetapkan sebagai pelaksana.`)) {
+            const { error } = await supabase
+                .from('orders')
+                .update({ status_pesanan: 'Proses', pelaksana_id: loggedInUser.id })
+                .eq('id', orderId);
+            
+            if (error) {
+                addToast(`Gagal memproses pesanan: ${error.message}`, 'error');
+            } else {
+                addToast(`Pesanan ${orderToProcess.no_nota} telah diproses.`, 'success');
+                onUpdate();
+            }
         }
     };
 
-    const handleDelete = (orderId: number) => {
-        if (window.confirm('Apakah Anda yakin ingin menghapus pesanan ini?')) {
-            onUpdate(orders.filter(o => o.id !== orderId));
-            if (currentOrders.length === 1 && currentPage > 1) {
-                setCurrentPage(currentPage - 1);
+    const handleDelete = async (orderId: number) => {
+        if (window.confirm('Apakah Anda yakin ingin menghapus pesanan ini? Semua item dan pembayaran terkait akan dihapus.')) {
+            setIsLoading(true);
+            // Supabase CASCADE on order_id will handle deleting items and payments
+            const { error } = await supabase.from('orders').delete().eq('id', orderId);
+
+            if (error) {
+                 addToast(`Gagal menghapus order: ${error.message}`, 'error');
+            } else {
+                 addToast('Order berhasil dihapus.', 'success');
+                 onUpdate();
             }
-            addToast('Order berhasil dihapus.', 'success');
+            setIsLoading(false);
         }
     };
     
-    const getCustomerName = (id: number | '') => {
+    const getCustomerName = (id: number | '' | undefined) => {
         return customers.find(c => c.id === id)?.name || 'N/A';
     }
 
@@ -324,11 +356,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     };
 
     const handleCopyItemDetails = (order: Order, item: OrderItem) => {
-        const customerName = getCustomerName(order.pelangganId);
-        const nota = order.noNota;
-        const bahan = bahanList.find(b => b.id === item.bahanId)?.name || 'N/A';
-        const deskripsi = item.deskripsiPesanan || '-';
-        const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}X${item.lebar}` : '-';
+        const customerName = getCustomerName(order.pelanggan_id);
+        const nota = order.no_nota;
+        const bahan = bahanList.find(b => b.id === item.bahan_id)?.name || 'N/A';
+        const deskripsi = item.deskripsi_pesanan || '-';
+        const ukuran = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? `${item.panjang}X${item.lebar}` : '-';
         const qty = `${item.qty}Pcs`;
         const finishing = item.finishing || '-';
 
@@ -403,7 +435,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                     <SPK
                         ref={spkRef}
                         order={selectedOrderForSpk}
-                        customer={customers.find(c => c.id === selectedOrderForSpk.pelangganId)}
+                        customer={customers.find(c => c.id === selectedOrderForSpk.pelanggan_id)}
                         bahanList={bahanList}
                     />
                 )}
@@ -445,16 +477,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                 className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
                                 ref={el => { itemRefs.current[order.id] = el; }}
                             >
-                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
+                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.no_nota}</th>
                                 <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
+                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelanggan_id)}</td>
                                 <td data-label="Status Pesanan" className="px-6 py-4 text-center">
                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                        order.statusPesanan === 'Proses'
+                                        order.status_pesanan === 'Proses'
                                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
                                             : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
                                     }`}>
-                                        {order.statusPesanan}
+                                        {order.status_pesanan}
                                     </span>
                                 </td>
                                 <td data-label="Detail Item" className="px-6 py-4 text-center">
@@ -462,12 +494,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                         onClick={() => toggleExpand(order.id)}
                                         className="flex items-center justify-center w-full space-x-2 text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors"
                                     >
-                                        <span>{order.items.length} item</span>
+                                        <span>{order.order_items.length} item</span>
                                         <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${expandedOrderId === order.id ? 'rotate-180' : ''}`} />
                                     </button>
                                 </td>
                                 <td data-label="Aksi" className="px-6 py-4 text-center space-x-2">
-                                    {order.statusPesanan === 'Pending' && (
+                                    {order.status_pesanan === 'Pending' && (
                                         <button
                                             onClick={() => handleProcessOrder(order.id)}
                                             className="text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition-colors p-1"
@@ -505,14 +537,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                                                        {order.items.map(item => {
-                                                            const bahan = bahanList.find(b => b.id === item.bahanId);
+                                                        {order.order_items.map(item => {
+                                                            const bahan = bahanList.find(b => b.id === item.bahan_id);
                                                             return (
                                                                 <tr key={item.id}>
                                                                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{bahan?.name || 'N/A'}</td>
-                                                                    <td className="px-4 py-3">{item.deskripsiPesanan || '-'}</td>
+                                                                    <td className="px-4 py-3">{item.deskripsi_pesanan || '-'}</td>
                                                                     <td className="px-4 py-3">{item.finishing || '-'}</td>
-                                                                    <td className="px-4 py-3">{item.panjang > 0 && item.lebar > 0 ? `${item.panjang}m x ${item.lebar}m` : '-'}</td>
+                                                                    <td className="px-4 py-3">{(item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? `${item.panjang}m x ${item.lebar}m` : '-'}</td>
                                                                     <td className="px-4 py-3 text-center">{item.qty}</td>
                                                                     <td className="px-4 py-3 text-center">
                                                                         <button 
@@ -556,17 +588,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                 {/* Order Header */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label htmlFor="noNota" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">No. Nota</label>
-                                        <input type="text" name="noNota" id="noNota" value={formData.noNota} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                        <label htmlFor="no_nota" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">No. Nota</label>
+                                        <input type="text" name="no_nota" id="no_nota" value={formData.no_nota} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
                                         <label htmlFor="tanggal" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
                                         <input type="date" name="tanggal" id="tanggal" value={formData.tanggal} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
                                     <div>
-                                        <label htmlFor="pelangganId" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Pelanggan</label>
-                                        <select name="pelangganId" id="pelangganId" value={formData.pelangganId} onChange={handleFormChange} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
-                                            <option value="" disabled>Pilih Pelanggan</option>
+                                        <label htmlFor="pelanggan_id" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Pelanggan</label>
+                                        <select name="pelanggan_id" id="pelanggan_id" value={formData.pelanggan_id} onChange={handleFormChange} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
+                                            <option value={0} disabled>Pilih Pelanggan</option>
                                             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
@@ -574,41 +606,41 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
 
                                 {/* Order Items */}
                                 <div className="space-y-4">
-                                    {formData.items.map((item, index) => (
-                                        <div key={item.id} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-4 relative">
+                                    {formData.order_items.map((item, index) => (
+                                        <div key={item.local_id} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-4 relative">
                                             <h4 className="font-semibold text-orange-600">Item #{index + 1}</h4>
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <div>
-                                                    <label htmlFor={`bahanId-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Bahan</label>
-                                                    <select name="bahanId" id={`bahanId-${index}`} value={item.bahanId} onChange={(e) => handleItemChange(index, e)} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
-                                                        <option value="" disabled>Pilih Bahan</option>
+                                                    <label htmlFor={`bahan_id-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Bahan</label>
+                                                    <select name="bahan_id" id={`bahan_id-${index}`} value={item.bahan_id} onChange={(e) => handleItemChange(index, e)} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
+                                                        <option value={0} disabled>Pilih Bahan</option>
                                                         {bahanList.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label htmlFor={`deskripsiPesanan-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Deskripsi Pesanan</label>
-                                                    <input type="text" name="deskripsiPesanan" id={`deskripsiPesanan-${index}`} value={item.deskripsiPesanan} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                    <label htmlFor={`deskripsi_pesanan-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Deskripsi Pesanan</label>
+                                                    <input type="text" name="deskripsi_pesanan" id={`deskripsi_pesanan-${index}`} value={item.deskripsi_pesanan || ''} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                                 </div>
                                                 <div>
                                                     <label htmlFor={`finishing-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Finishing</label>
-                                                    <input type="text" name="finishing" id={`finishing-${index}`} value={item.finishing} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                    <input type="text" name="finishing" id={`finishing-${index}`} value={item.finishing || ''} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-3 gap-4">
                                                 <div>
                                                     <label htmlFor={`panjang-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Panjang (m)</label>
-                                                    <input type="number" name="panjang" id={`panjang-${index}`} value={item.panjang} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                    <input type="number" name="panjang" id={`panjang-${index}`} value={item.panjang || 0} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                                 </div>
                                                 <div>
                                                     <label htmlFor={`lebar-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Lebar (m)</label>
-                                                    <input type="number" name="lebar" id={`lebar-${index}`} value={item.lebar} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                    <input type="number" name="lebar" id={`lebar-${index}`} value={item.lebar || 0} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                                 </div>
                                                 <div>
                                                     <label htmlFor={`qty-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Qty</label>
                                                     <input type="number" name="qty" id={`qty-${index}`} value={item.qty} onChange={(e) => handleItemChange(index, e)} required min="1" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                                 </div>
                                             </div>
-                                            {formData.items.length > 1 && (
+                                            {formData.order_items.length > 1 && (
                                                 <button type="button" onClick={() => removeItem(index)} className="absolute top-3 right-3 text-red-600 hover:text-red-500 p-1 rounded-full bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500">
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>
@@ -626,7 +658,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                     </div>
                                     <div className="flex space-x-4">
                                         <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                        <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingOrder ? 'Simpan Perubahan' : 'Simpan Order'}</button>
+                                        <button type="submit" disabled={isLoading} className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:bg-orange-300">{isLoading ? 'Menyimpan...' : (editingOrder ? 'Simpan Perubahan' : 'Simpan Order')}</button>
                                     </div>
                                 </div>
                             </form>

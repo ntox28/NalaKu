@@ -3,44 +3,36 @@ import React, { useState } from 'react';
 import UserIcon from './icons/UserIcon';
 import LockIcon from './icons/LockIcon';
 import NalaKuLogo from './icons/NalaKuLogo';
+import { supabase } from '../lib/supabaseClient';
+import { useToast } from '../hooks/useToast';
+import EmailIcon from './icons/EmailIcon';
 
-export type UserLevel = 'Admin' | 'Kasir' | 'Produksi' | 'Office';
 
-export interface User {
-    id: string; // username for login
-    password: string;
-    level: UserLevel;
-    employeeId: number; // Link to Employee
-}
-
-interface LoginProps {
-    onLoginSuccess: (user: User) => void;
-    users: User[];
-}
-
-const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
-    const [userId, setUserId] = useState('');
+const LoginComponent: React.FC = () => {
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const { addToast } = useToast();
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setIsLoading(true);
         setError('');
         
-        setTimeout(() => {
-            setIsLoading(false);
-            const foundUser = users.find(
-                user => user.id.toLowerCase() === userId.toLowerCase() && user.password === password
-            );
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
 
-            if (foundUser) {
-                onLoginSuccess(foundUser);
-            } else {
-                setError('ID Pengguna atau Kata Sandi salah.');
-            }
-        }, 1000);
+        setIsLoading(false);
+
+        if (signInError) {
+            setError('Email atau Kata Sandi salah.');
+            addToast('Login gagal, periksa kembali email dan password Anda.', 'error');
+            console.error('Sign in error:', signInError.message);
+        }
+        // onAuthStateChange in App.tsx will handle successful login
     };
 
     return (
@@ -54,18 +46,18 @@ const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <UserIcon className="h-5 w-5 text-slate-400" />
+                        <EmailIcon className="h-5 w-5 text-slate-400" />
                     </div>
                     <input
-                        id="user-id"
-                        name="user-id"
-                        type="text"
-                        autoComplete="username"
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
                         required
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300"
-                        placeholder="Masukkan IDmu"
+                        placeholder="Masukkan Email"
                     />
                 </div>
                 <div className="relative">
@@ -81,26 +73,11 @@ const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300"
-                        placeholder="Masukkan Passwordmu"
+                        placeholder="Masukkan Password"
                     />
                 </div>
 
                  {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                        <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 bg-slate-100 dark:bg-slate-600 border-slate-300 dark:border-slate-500 text-orange-600 focus:ring-orange-500 rounded" />
-                        <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 dark:text-slate-400">
-                            Ingat saya
-                        </label>
-                    </div>
-
-                    <div className="text-sm">
-                        <a href="#" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
-                            Tanya sandi?
-                        </a>
-                    </div>
-                </div>
 
                 <div>
                     <button

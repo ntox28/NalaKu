@@ -1,11 +1,7 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Order } from '../orders/OrderManagement';
-import { Expense } from '../expenses/ExpenseManagement';
-import { Customer } from '../../lib/supabaseClient';
-import { Bahan } from '../bahan/BahanManagement';
-import { User } from '../Login';
+import { Order, Expense, Customer, Bahan, CustomerLevel } from '../../lib/supabaseClient';
+import { User as AuthUser } from '@supabase/supabase-js';
 import Pagination from '../Pagination';
 import DownloadIcon from '../icons/DownloadIcon';
 import PrintIcon from '../icons/PrintIcon';
@@ -15,7 +11,7 @@ interface ReportsProps {
     expenses: Expense[];
     customers: Customer[];
     bahanList: Bahan[];
-    users: User[];
+    users: AuthUser[];
     calculateOrderTotal: (order: Order, customers: Customer[], bahanList: Bahan[]) => number;
     getPriceForCustomer: (bahan: Bahan, level: Customer['level']) => number;
     formatCurrency: (value: number) => string;
@@ -116,17 +112,17 @@ const Reports: React.FC<ReportsProps> = (props) => {
         });
 
         const salesReportOrders = dateFilteredOrders.filter(o => {
-            const customerMatch = filters.customerId === 'all' || o.pelangganId === Number(filters.customerId);
-            const statusMatch = filters.status === 'all' || o.statusPembayaran === filters.status;
+            const customerMatch = filters.customerId === 'all' || o.pelanggan_id === Number(filters.customerId);
+            const statusMatch = filters.status === 'all' || o.status_pembayaran === filters.status;
             return customerMatch && statusMatch;
         });
         
         const sales = {
             data: salesReportOrders.map(o => {
-                const customer = customers.find(c => c.id === o.pelangganId);
+                const customer = customers.find(c => c.id === o.pelanggan_id);
                 const total = calculateOrderTotal(o, customers, bahanList);
                 return {
-                    "No Nota": o.noNota, "Tanggal": o.tanggal, "Pelanggan": customer?.name || 'N/A', "Total": total, "Status": o.statusPembayaran,
+                    "No Nota": o.no_nota, "Tanggal": o.tanggal, "Pelanggan": customer?.name || 'N/A', "Total": total, "Status": o.status_pembayaran,
                 };
             }),
             summary: {
@@ -135,35 +131,35 @@ const Reports: React.FC<ReportsProps> = (props) => {
         };
         
         const expenseList = {
-            data: dateFilteredExpenses.map(e => ({ "Tanggal": e.tanggal, "Jenis Pengeluaran": e.jenisPengeluaran, "Qty": e.qty, "Harga Satuan": e.harga, "Jumlah": e.qty * e.harga, })),
+            data: dateFilteredExpenses.map(e => ({ "Tanggal": e.tanggal, "Jenis Pengeluaran": e.jenis_pengeluaran, "Qty": e.qty, "Harga Satuan": e.harga, "Jumlah": e.qty * e.harga, })),
             summary: { "Total Pengeluaran": dateFilteredExpenses.reduce((sum, e) => sum + (e.harga * e.qty), 0), }
         };
         
         const customerSpending = dateFilteredOrders.reduce((acc, order) => {
             const total = calculateOrderTotal(order, customers, bahanList);
-            if (order.pelangganId) acc[order.pelangganId] = (acc[order.pelangganId] || 0) + total;
+            if (order.pelanggan_id) acc[order.pelanggan_id] = (acc[order.pelanggan_id] || 0) + total;
             return acc;
         }, {} as Record<number, number>);
 
         const topCustomers = {
             data: Object.entries(customerSpending).sort(([, a], [, b]) => b - a).map(([customerId, total]) => {
                 const customer = customers.find(c => c.id === Number(customerId));
-                return { "Pelanggan": customer?.name || 'N/A', "Total Belanja": total, "Jumlah Transaksi": orders.filter(o => o.pelangganId === Number(customerId)).length };
+                return { "Pelanggan": customer?.name || 'N/A', "Total Belanja": total, "Jumlah Transaksi": orders.filter(o => o.pelanggan_id === Number(customerId)).length };
             })
         };
 
         const materialSales = dateFilteredOrders.flatMap(o => {
-            const customer = customers.find(c => c.id === o.pelangganId);
-            return o.items.map(item => ({...item, customerLevel: customer?.level, orderId: o.id}))
+            const customer = customers.find(c => c.id === o.pelanggan_id);
+            return o.order_items.map(item => ({...item, customerLevel: customer?.level, orderId: o.id}))
         }).reduce((acc, item) => {
-            const bahan = bahanList.find(b => b.id === item.bahanId);
-            if (item.bahanId && bahan && item.customerLevel) {
-                if (!acc[item.bahanId]) acc[item.bahanId] = { name: bahan.name, qty: 0, revenue: 0 };
+            const bahan = bahanList.find(b => b.id === item.bahan_id);
+            if (item.bahan_id && bahan && item.customerLevel) {
+                if (!acc[item.bahan_id]) acc[item.bahan_id] = { name: bahan.name, qty: 0, revenue: 0 };
                 const price = props.getPriceForCustomer(bahan, item.customerLevel);
-                const area = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+                const area = (item.panjang || 0) > 0 && (item.lebar || 0) > 0 ? (item.panjang || 1) * (item.lebar || 1) : 1;
                 const totalQty = area * item.qty;
-                acc[item.bahanId].qty += totalQty;
-                acc[item.bahanId].revenue += totalQty * price;
+                acc[item.bahan_id].qty += totalQty;
+                acc[item.bahan_id].revenue += totalQty * price;
             }
             return acc;
         }, {} as Record<number, { name: string, qty: number, revenue: number }>);

@@ -1,21 +1,10 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
 import Pagination from '../Pagination';
 import { useToast } from '../../hooks/useToast';
-
-export interface Expense {
-    id: number;
-    tanggal: string; // ISO date string e.g., "2024-05-25"
-    jenisPengeluaran: string;
-    qty: number;
-    harga: number;
-}
-
-interface ExpenseManagementProps {
-    expenses: Expense[];
-    onUpdate: (updatedExpenses: Expense[]) => void;
-}
+import { Expense, supabase } from '../../lib/supabaseClient';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -34,12 +23,18 @@ const formatDate = (isoDate: string) => {
     });
 };
 
+interface ExpenseManagementProps {
+    expenses: Expense[];
+    onUpdate: () => void;
+}
+
 const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-    const [formData, setFormData] = useState({ tanggal: '', jenisPengeluaran: '', qty: 1, harga: 0 });
+    const [formData, setFormData] = useState<Omit<Expense, 'id' | 'created_at'>>({ tanggal: '', jenis_pengeluaran: '', qty: 1, harga: 0 });
     const [totalHarga, setTotalHarga] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
 
@@ -53,12 +48,12 @@ const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdat
             if (editingExpense) {
                 setFormData({
                     tanggal: editingExpense.tanggal,
-                    jenisPengeluaran: editingExpense.jenisPengeluaran,
+                    jenis_pengeluaran: editingExpense.jenis_pengeluaran,
                     qty: editingExpense.qty,
                     harga: editingExpense.harga,
                 });
             } else {
-                 setFormData({ tanggal: new Date().toISOString().split('T')[0], jenisPengeluaran: '', qty: 1, harga: 0 });
+                 setFormData({ tanggal: new Date().toISOString().split('T')[0], jenis_pengeluaran: '', qty: 1, harga: 0 });
             }
         }
     }, [isModalOpen, editingExpense]);
@@ -83,28 +78,49 @@ const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdat
         setFormData(prev => ({ ...prev, [name]: type === 'number' ? Number(value) : value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
+
         if (editingExpense) {
-            onUpdate(expenses.map(exp => exp.id === editingExpense.id ? { ...exp, ...formData } : exp));
-            addToast('Data pengeluaran berhasil diperbarui!', 'success');
+            const { error } = await supabase
+                .from('expenses')
+                .update(formData)
+                .eq('id', editingExpense.id);
+
+            if (error) {
+                addToast(`Gagal memperbarui pengeluaran: ${error.message}`, 'error');
+            } else {
+                addToast('Data pengeluaran berhasil diperbarui!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         } else {
-            const newExpense = { id: Date.now(), ...formData };
-            const updatedExpenses = [...expenses, newExpense];
-            onUpdate(updatedExpenses);
-            setCurrentPage(1); // Go to first page to see the newest item
-            addToast('Data pengeluaran berhasil ditambahkan!', 'success');
+            const { error } = await supabase.from('expenses').insert(formData);
+            
+            if (error) {
+                addToast(`Gagal menambahkan pengeluaran: ${error.message}`, 'error');
+            } else {
+                addToast('Data pengeluaran berhasil ditambahkan!', 'success');
+                onUpdate();
+                handleCloseModal();
+            }
         }
-        handleCloseModal();
+        setIsLoading(false);
     };
 
-    const handleDelete = (expenseId: number) => {
+    const handleDelete = async (expenseId: number) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus data pengeluaran ini?')) {
-            onUpdate(expenses.filter(exp => exp.id !== expenseId));
-            if (currentExpenses.length === 1 && currentPage > 1) {
-                setCurrentPage(currentPage - 1);
+            setIsLoading(true);
+            const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+            
+            if (error) {
+                addToast(`Gagal menghapus pengeluaran: ${error.message}`, 'error');
+            } else {
+                addToast('Data pengeluaran berhasil dihapus.', 'success');
+                onUpdate();
             }
-            addToast('Data pengeluaran berhasil dihapus.', 'success');
+            setIsLoading(false);
         }
     };
 
@@ -134,7 +150,7 @@ const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdat
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                         {currentExpenses.map((expense) => (
                             <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{expense.jenisPengeluaran}</th>
+                                <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{expense.jenis_pengeluaran}</th>
                                 <td data-label="Tanggal" className="px-6 py-4">{formatDate(expense.tanggal)}</td>
                                 <td data-label="Qty" className="px-6 py-4 text-center">{expense.qty}</td>
                                 <td data-label="Harga Satuan" className="px-6 py-4 text-right">{formatCurrency(expense.harga)}</td>
@@ -166,8 +182,8 @@ const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdat
                                     <input type="date" name="tanggal" id="tanggal" value={formData.tanggal} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300" />
                                 </div>
                                 <div>
-                                    <label htmlFor="jenisPengeluaran" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Jenis Pengeluaran</label>
-                                    <input type="text" name="jenisPengeluaran" id="jenisPengeluaran" value={formData.jenisPengeluaran} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300" />
+                                    <label htmlFor="jenis_pengeluaran" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Jenis Pengeluaran</label>
+                                    <input type="text" name="jenis_pengeluaran" id="jenis_pengeluaran" value={formData.jenis_pengeluaran} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -187,7 +203,7 @@ const ExpenseManagement: React.FC<ExpenseManagementProps> = ({ expenses, onUpdat
                                 </div>
                                 <div className="flex justify-end space-x-4 pt-4 flex-shrink-0">
                                     <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingExpense ? 'Simpan Perubahan' : 'Simpan'}</button>
+                                    <button type="submit" disabled={isLoading} className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:bg-orange-300">{isLoading ? 'Menyimpan...' : (editingExpense ? 'Simpan Perubahan' : 'Simpan')}</button>
                                 </div>
                             </form>
                         </div>

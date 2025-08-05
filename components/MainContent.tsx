@@ -1,17 +1,17 @@
 
 import React from 'react';
 import CustomerManagement from './customers/CustomerManagement';
-import { Customer } from '../lib/supabaseClient';
-import EmployeeManagement, { Employee } from './employees/EmployeeManagement';
+import { Customer, Employee, Bahan, Order, Expense } from '../lib/supabaseClient';
+import EmployeeManagement from './employees/EmployeeManagement';
 import SettingsManagement from './settings/SettingsManagement';
-import BahanManagement, { Bahan } from './bahan/BahanManagement';
-import ExpenseManagement, { Expense } from './expenses/ExpenseManagement';
-import OrderManagement, { Order } from './orders/OrderManagement';
+import BahanManagement from './bahan/BahanManagement';
+import ExpenseManagement from './expenses/ExpenseManagement';
+import OrderManagement from './orders/OrderManagement';
 import ProductionManagement from './production/ProductionManagement';
 import TransactionManagement from './transactions/TransactionManagement';
 import DashboardView from './dashboard/DashboardView';
 import FinanceView from './finance/FinanceView';
-import { User } from './Login';
+import { User as AuthUser } from '@supabase/supabase-js';
 import GlobalSearch from './GlobalSearch';
 import MenuIcon from './icons/MenuIcon';
 
@@ -21,34 +21,29 @@ export type HighlightItem = {
 };
 
 interface MainContentProps {
-  user: User;
+  user: AuthUser;
   activeView: string;
-  users: User[];
-  onUsersUpdate: (users: User[]) => void;
+  users: AuthUser[];
   customers: Customer[];
-  onCustomersUpdate: () => void;
   bahanList: Bahan[];
-  onBahanUpdate: (bahan: Bahan[]) => void;
   employees: Employee[];
-  onEmployeesUpdate: (employees: Employee[]) => void;
   orders: Order[];
-  onOrdersUpdate: (orders: Order[] | ((orders: Order[]) => Order[])) => void;
   expenses: Expense[];
-  onExpensesUpdate: (expenses: Expense[]) => void;
+  refetchData: () => void;
   onSearchResultSelect: (view: string, id: number | string) => void;
   highlightedItem: HighlightItem | null;
   clearHighlightedItem: () => void;
   onToggleSidebar: () => void;
 }
 
-const WelcomeContent: React.FC<{ user: User; activeView: string }> = ({ user, activeView }) => (
+const WelcomeContent: React.FC<{ user: AuthUser; activeView: string }> = ({ user, activeView }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
         <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
             Selamat Datang di {activeView}
         </h2>
         <p className="text-slate-600 dark:text-slate-300">
             Ini adalah area konten untuk {activeView}. Fungsionalitas spesifik untuk modul ini akan ditampilkan di sini.
-            Saat ini, Anda masuk sebagai <span className="font-bold text-orange-600 capitalize">{user.id}</span>.
+            Saat ini, Anda masuk sebagai <span className="font-bold text-orange-600 capitalize">{user.email}</span>.
         </p>
     </div>
 );
@@ -56,10 +51,10 @@ const WelcomeContent: React.FC<{ user: User; activeView: string }> = ({ user, ac
 
 const MainContent: React.FC<MainContentProps> = (props) => {
   const { 
-    user, activeView, users, onUsersUpdate, 
-    customers, onCustomersUpdate, bahanList, onBahanUpdate,
-    employees, onEmployeesUpdate, orders, onOrdersUpdate,
-    expenses, onExpensesUpdate,
+    user, activeView, users,
+    customers, bahanList,
+    employees, orders,
+    expenses, refetchData,
     onSearchResultSelect, highlightedItem, clearHighlightedItem,
     onToggleSidebar
   } = props;
@@ -68,9 +63,10 @@ const MainContent: React.FC<MainContentProps> = (props) => {
       highlightedItem: highlightedItem,
       clearHighlightedItem: clearHighlightedItem,
   };
-
-  const employee = employees.find(e => e.id === user.employeeId);
-  const displayName = employee ? employee.name : user.id;
+  
+  const userRole = user.app_metadata?.userrole || 'Kasir';
+  const employee = employees.find(e => e.user_id === user.id);
+  const displayName = employee ? employee.name : (user.email || 'Pengguna');
   const avatarSeed = displayName;
 
 
@@ -81,21 +77,21 @@ const MainContent: React.FC<MainContentProps> = (props) => {
       case 'Keuangan':
         return <FinanceView orders={orders} expenses={expenses} customers={customers} bahanList={bahanList} users={users} />;
       case 'Order':
-        return <OrderManagement customers={customers} bahanList={bahanList} orders={orders} onUpdate={onOrdersUpdate} loggedInUser={user} {...highlightProps}/>;
+        return <OrderManagement customers={customers} bahanList={bahanList} orders={orders} onUpdate={refetchData} loggedInUser={user} {...highlightProps}/>;
       case 'Produksi':
-        return <ProductionManagement orders={orders} onUpdate={onOrdersUpdate} customers={customers} bahanList={bahanList} loggedInUser={user} {...highlightProps}/>;
+        return <ProductionManagement orders={orders} onUpdate={refetchData} customers={customers} bahanList={bahanList} loggedInUser={user} {...highlightProps}/>;
       case 'Transaksi':
-        return <TransactionManagement orders={orders} onUpdate={onOrdersUpdate} customers={customers} bahanList={bahanList} loggedInUser={user} users={users} employees={employees} {...highlightProps}/>;
+        return <TransactionManagement orders={orders} onUpdate={refetchData} customers={customers} bahanList={bahanList} loggedInUser={user} users={users} employees={employees} {...highlightProps}/>;
       case 'Daftar Pelanggan':
-        return <CustomerManagement customers={customers} onUpdate={onCustomersUpdate} {...highlightProps}/>;
+        return <CustomerManagement customers={customers} onUpdate={refetchData} {...highlightProps}/>;
       case 'Daftar Karyawan':
-        return <EmployeeManagement employees={employees} onUpdate={onEmployeesUpdate} users={users} onUsersUpdate={onUsersUpdate} />;
+        return <EmployeeManagement employees={employees} onUpdate={refetchData} users={users} />;
       case 'Daftar Bahan':
-        return <BahanManagement bahanList={bahanList} onUpdate={onBahanUpdate} />;
+        return <BahanManagement bahanList={bahanList} onUpdate={refetchData} />;
        case 'Pengeluaran':
-        return <ExpenseManagement expenses={expenses} onUpdate={onExpensesUpdate} />;
+        return <ExpenseManagement expenses={expenses} onUpdate={refetchData} />;
       case 'Pengaturan':
-        return <SettingsManagement users={users} onUsersUpdate={onUsersUpdate} employees={employees} />;
+        return <SettingsManagement users={users} onUsersUpdate={refetchData} employees={employees} />;
       default:
         return <WelcomeContent user={user} activeView={activeView} />;
     }
@@ -115,7 +111,7 @@ const MainContent: React.FC<MainContentProps> = (props) => {
           <GlobalSearch orders={orders} customers={customers} onResultSelect={onSearchResultSelect} />
           <div className="text-right flex-shrink-0">
             <p className="text-slate-800 dark:text-slate-200 font-semibold capitalize truncate">{displayName}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">{user.level}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">{userRole}</p>
           </div>
           <img
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-orange-500 object-cover"
