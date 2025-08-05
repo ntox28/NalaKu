@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 import { Order } from '../orders/OrderManagement';
@@ -66,7 +65,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
         const { theme } = useTheme();
         const [transactionsPage, setTransactionsPage] = useState(1);
         const [expensesPage, setExpensesPage] = useState(1);
-        const ITEMS_PER_PAGE = 10;
+        const ITEMS_PER_PAGE = 5;
 
         const { totalRevenue, totalExpenses, netProfit, totalReceivables, cashflowData } = useMemo(() => {
             const totalRevenue = props.orders.flatMap(o => o.payments).reduce((sum, p) => sum + p.amount, 0);
@@ -134,7 +133,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
         return (
             <div className="space-y-8">
                 {/* Stat Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <StatCard title="Total Pendapatan" value={formatCurrency(totalRevenue)} icon={<TrendingUpIcon />} />
                     <StatCard title="Total Pengeluaran" value={formatCurrency(totalExpenses)} icon={<TrendingDownIcon />} />
                     <StatCard title="Laba Bersih" value={formatCurrency(netProfit)} icon={<FinanceIcon />} />
@@ -167,7 +166,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
                 
                  {/* Recent Transactions & Expenses */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col">
+                    <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Transaksi Terbaru</h3>
                         <div className="overflow-x-auto flex-1">
                              <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
@@ -189,7 +188,7 @@ const FinanceView: React.FC<FinanceViewProps> = (props) => {
                         </div>
                          <Pagination currentPage={transactionsPage} totalPages={totalTransactionPages} onPageChange={setTransactionsPage} />
                     </div>
-                     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col">
+                     <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Pengeluaran Terbaru</h3>
                         <div className="overflow-x-auto flex-1">
                             <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">

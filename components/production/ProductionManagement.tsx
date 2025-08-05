@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Customer } from '../customers/CustomerManagement';
 import { Bahan } from '../bahan/BahanManagement';
 import { Order, OrderItem, ProductionStatus } from '../orders/OrderManagement';
@@ -15,6 +14,8 @@ interface ProductionManagementProps {
     customers: Customer[];
     bahanList: Bahan[];
     loggedInUser: User;
+    highlightedItem?: { view: string; id: number | string } | null;
+    clearHighlightedItem?: () => void;
 }
 
 const formatDate = (isoDate: string) => {
@@ -34,11 +35,12 @@ const getStatusColor = (status: ProductionStatus) => {
     return colors[status];
 };
 
-const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onUpdate, customers, bahanList, loggedInUser }) => {
+const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onUpdate, customers, bahanList, loggedInUser, highlightedItem, clearHighlightedItem }) => {
     const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
+    const itemRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
     
     const [filters, setFilters] = useState({
         customerId: 'all',
@@ -61,6 +63,30 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
     const currentOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        if (highlightedItem && (highlightedItem.view === 'Produksi' || highlightedItem.view === 'Transaksi') && clearHighlightedItem) {
+            const { id } = highlightedItem;
+            
+            const itemIndex = filteredOrders.findIndex(o => o.id === id);
+            if (itemIndex > -1) {
+                const page = Math.ceil((itemIndex + 1) / ITEMS_PER_PAGE);
+                setCurrentPage(page);
+
+                setTimeout(() => {
+                    const element = itemRefs.current[id as number];
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('bg-orange-100', 'dark:bg-orange-800/50', 'transition-all', 'duration-300');
+                        setTimeout(() => {
+                            element.classList.remove('bg-orange-100', 'dark:bg-orange-800/50');
+                        }, 2500);
+                    }
+                }, 100);
+            }
+            clearHighlightedItem();
+        }
+    }, [highlightedItem, clearHighlightedItem, filteredOrders]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -125,7 +151,7 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
             <div className="flex justify-between items-center mb-6 flex-shrink-0">
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Manajemen Produksi</h2>
             </div>
@@ -138,8 +164,8 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                 onReset={handleResetFilters}
             />
 
-            <div className="flex-1 overflow-y-auto">
-                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+            <div className="flex-1 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300 responsive-table">
                     <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50 sticky top-0 backdrop-blur-sm">
                         <tr>
                             <th scope="col" className="px-6 py-3">No. Nota</th>
@@ -149,16 +175,19 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                             <th scope="col" className="px-6 py-3 text-center">Detail Item</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                         {currentOrders.map((order) => (
                            <React.Fragment key={order.id}>
-                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                            <tr 
+                                className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
+                                ref={el => { itemRefs.current[order.id] = el; }}
+                            >
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
-                                <td className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                <td className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
-                                <td className="px-6 py-4">
+                                <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
+                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
+                                <td data-label="Pelaksana" className="px-6 py-4">
                                     {order.pelaksanaId ? (
-                                        <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center justify-end md:justify-start gap-2">
                                             <span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{order.pelaksanaId}</span>
                                             {order.pelaksanaId === loggedInUser.id && (
                                                 <button 
@@ -172,13 +201,13 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                                     ) : (
                                         <button 
                                             onClick={() => handleTakeJob(order.id)} 
-                                            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 px-3 rounded-lg text-xs transition-colors w-full"
+                                            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-1 px-3 rounded-lg text-xs transition-colors w-full md:w-auto"
                                         >
                                             Ambil Pekerjaan
                                         </button>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td data-label="Detail Item" className="px-6 py-4 text-center">
                                     <button
                                         onClick={() => toggleExpand(order.id)}
                                         className="flex items-center justify-center w-full space-x-2 text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors"
@@ -189,9 +218,9 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                                 </td>
                             </tr>
                             {expandedOrderId === order.id && (
-                                <tr className="bg-slate-50 dark:bg-slate-700/50">
+                                <tr className="bg-slate-50 dark:bg-slate-700/50 md:table-row">
                                     <td colSpan={5} className="p-0">
-                                        <div className="px-8 py-4">
+                                        <div className="px-4 sm:px-8 py-4">
                                             <h4 className="text-md font-semibold text-slate-700 dark:text-slate-200 mb-3">Status Pengerjaan Item:</h4>
                                             <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">
                                                 <table className="w-full text-sm text-left text-slate-600 dark:text-slate-300">

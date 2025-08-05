@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NalaKu</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -47,6 +47,88 @@
 
 .toast-item.fade-out {
   animation: fadeOut 0.3s ease-in forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Responsive Tables */
+@media (max-width: 768px) {
+  .responsive-table thead {
+    display: none;
+  }
+  .responsive-table tr {
+    display: block;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    overflow: hidden;
+  }
+  .responsive-table, .responsive-table tbody, .responsive-table tr, .responsive-table td, .responsive-table th {
+    display: block;
+  }
+  .responsive-table td, .responsive-table th[scope="row"] {
+    padding: 0.75rem 1rem;
+    border-bottom-width: 1px;
+    border-style: solid;
+  }
+  .responsive-table td {
+    text-align: right;
+    position: relative;
+    padding-left: 50%;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 1rem;
+    width: 45%;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 600;
+  }
+  .responsive-table th[scope="row"] {
+    font-size: 1.125rem; /* text-lg */
+    font-weight: 700;
+  }
+
+  /* Dark mode specific table styles */
+  html.dark .responsive-table tr {
+    background-color: #1e293b; /* dark:bg-slate-800 */
+    border: 1px solid #334155; /* dark:border-slate-700 */
+  }
+  html.dark .responsive-table td, html.dark .responsive-table th[scope="row"] {
+    border-color: #334155; /* dark:border-slate-700 */
+  }
+  html.dark .responsive-table th[scope="row"] {
+    background-color: #334155; /* dark:bg-slate-700 */
+  }
+  html.dark .responsive-table td::before {
+    color: #94a3b8; /* dark:text-slate-400 */
+  }
+
+  /* Light mode specific table styles */
+  html.light .responsive-table tr {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+  }
+  html.light .responsive-table td, html.light .responsive-table th[scope="row"] {
+    border-color: #e2e8f0;
+  }
+  html.light .responsive-table th[scope="row"] {
+    background-color: #f8fafc; /* bg-slate-50 */
+  }
+  html.light .responsive-table td::before {
+    color: #475569; /* text-slate-600 */
+  }
+  .responsive-table td:last-of-type {
+    border-bottom: 0;
+  }
 }
 
 @media print {

@@ -1,19 +1,28 @@
+
 import React, { forwardRef } from 'react';
 import { Customer } from '../customers/CustomerManagement';
 import { Bahan } from '../bahan/BahanManagement';
 import { Order } from '../orders/OrderManagement';
 import { User } from '../Login';
+import { Employee } from '../employees/EmployeeManagement';
 
 interface NotaProps {
   order: Order;
   customers: Customer[];
   bahanList: Bahan[];
   users: User[];
+  employees: Employee[];
+  loggedInUser: User;
   calculateTotal: (order: Order) => number;
 }
 
 const formatCurrencyDotMatrix = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {}).format(value);
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(value);
 };
 
 const formatDate = (isoDate: string) => {
@@ -37,19 +46,29 @@ const getPriceForCustomer = (bahan: Bahan, level: Customer['level']): number => 
     }
 };
 
-const Nota = forwardRef<HTMLDivElement, NotaProps>(({ order, customers, bahanList, users, calculateTotal }, ref) => {
+const Nota = forwardRef<HTMLDivElement, NotaProps>(({ order, customers, bahanList, users, employees, loggedInUser, calculateTotal }, ref) => {
   const customer = customers.find(c => c.id === order.pelangganId);
-  const lastPayment = order.payments.length > 0 ? order.payments[order.payments.length - 1] : null;
-  const kasir = users.find(u => u.id === lastPayment?.kasirId);
   const totalTagihan = calculateTotal(order);
   const totalPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
 
+  const getEmployeeNameByUserId = (userId: string | null | undefined): string => {
+    if (!userId) return 'N/A';
+    const user = users.find(u => u.id === userId);
+    if (!user) return userId;
+    const employee = employees.find(e => e.id === user.employeeId);
+    return employee ? employee.name : userId;
+  };
+
+  const lastPayment = order.payments.length > 0 ? order.payments[order.payments.length - 1] : null;
+  const kasirName = lastPayment ? getEmployeeNameByUserId(lastPayment.kasirId) : getEmployeeNameByUserId(loggedInUser.id);
+
+
   return (
-    <div ref={ref} className="nota-dot-matrix bg-white text-black p-4">
-      <div className="nota-header">
-        <h1 className="company-name">Nala Media</h1>
-        <p>Jl. Prof. Moh. Yamin,Cerbonan,Karanganyar (Timur Stadion 45)</p>
-        <p>Telepon: 0812-3456-7890</p>
+    <div ref={ref} className="nota-dot-matrix bg-white text-black p-4 font-sans text-xs">
+      <div className="nota-header text-center">
+        <h1 className="company-name text-base font-bold">Nala Media</h1>
+        <div>Jl. Prof. Moh. Yamin,Cerbonan,Karanganyar (Timur Stadion 45)</div>
+        <div>Telepon: 0812-3456-7890</div>
       </div>
       <hr className="separator" />
       <div className="nota-info">
@@ -58,11 +77,22 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({ order, customers, bahanLis
       </div>
        <div className="nota-info">
         <span>Pelanggan: {customer?.name || 'N/A'}</span>
-        <span>Kasir: {kasir?.id || 'N/A'}</span>
+        <span>Kasir: {kasirName}</span>
       </div>
       <hr className="separator" />
       <div className="nota-items">
-        {order.items.map((item) => {
+         {/* Header */}
+         <div className="flex font-bold">
+            <div className="w-[5%] pr-1">No.</div>
+            <div className="w-[25%] pr-1">Deskripsi</div>
+            <div className="w-[15%] pr-1">Finishing</div>
+            <div className="w-[20%] pr-1">Bahan</div>
+            <div className="w-[15%] text-center pr-1">Ukuran</div>
+            <div className="w-[5%] text-center pr-1">Qty</div>
+            <div className="w-[15%] text-right">Total Harga</div>
+        </div>
+        <hr className="my-1 border-dashed border-black"/>
+        {order.items.map((item, index) => {
           const bahan = bahanList.find(b => b.id === item.bahanId);
           if (!bahan || !customer) return null;
           
@@ -71,37 +101,80 @@ const Nota = forwardRef<HTMLDivElement, NotaProps>(({ order, customers, bahanLis
           const jumlah = hargaSatuan * itemArea * item.qty;
 
           return (
-            <div key={item.id} className="item-row">
-              <p className="item-name">{bahan.name} {item.panjang > 0 && `(${item.panjang}x${item.lebar}m)`}</p>
-              {item.deskripsiPesanan && <p className="item-desc">{item.deskripsiPesanan}</p>}
-              <div className="item-calculation">
-                <span>{item.qty} x {formatCurrencyDotMatrix(hargaSatuan * itemArea)}</span>
-                <span>{formatCurrencyDotMatrix(jumlah)}</span>
-              </div>
+            <div key={item.id} className="flex items-start py-0.5">
+                <div className="w-[5%] pr-1">{index + 1}.</div>
+                <div className="w-[25%] pr-1 break-words">{item.deskripsiPesanan || '-'}</div>
+                <div className="w-[15%] pr-1 break-words">{item.finishing || '-'}</div>
+                <div className="w-[20%] pr-1 break-words">{bahan.name}</div>
+                <div className="w-[15%] text-center pr-1">{item.panjang > 0 ? `${item.panjang}x${item.lebar}m` : '-'}</div>
+                <div className="w-[5%] text-center pr-1">{item.qty}</div>
+                <div className="w-[15%] text-right">{formatCurrencyDotMatrix(jumlah)}</div>
             </div>
           );
         })}
       </div>
+      
+      {order.payments.length > 0 && (
+        <>
+            <hr className="separator" />
+            <div className="nota-payment-history mt-2">
+                <div className="font-bold">Riwayat Pembayaran:</div>
+                <div className="flex font-bold text-[9px]">
+                    <div className="w-[35%]">Tanggal</div>
+                    <div className="w-[35%]">Kasir</div>
+                    <div className="w-[30%] text-right">Jumlah</div>
+                </div>
+                <hr className="my-1 border-dashed border-black"/>
+                {order.payments.map((payment, index) => (
+                    <div key={index} className="flex items-start py-0.5 text-[9px]">
+                        <div className="w-[35%]">{formatDate(payment.date)}</div>
+                        <div className="w-[35%] capitalize">{getEmployeeNameByUserId(payment.kasirId)}</div>
+                        <div className="w-[30%] text-right">{formatCurrencyDotMatrix(payment.amount)}</div>
+                    </div>
+                ))}
+            </div>
+        </>
+      )}
+
       <hr className="separator" />
-      <div className="nota-summary">
-        <div className="summary-row">
-            <span>Subtotal</span>
-            <span>{formatCurrencyDotMatrix(totalTagihan)}</span>
+      
+      <div className="flex justify-between items-start mt-2">
+        {/* Left Side: Bank Info & Terms */}
+        <div className="w-[60%] text-left text-[9px] leading-tight pr-4">
+            <div className="font-bold">Pembayaran Transfer : a/n Ariska Prima Diastari</div>
+            <div>BRI : 670-70-10-28864537 | BCA : 0154361801 | BPD JATENG : 3142069325</div>
+            <div className="mt-2">
+              <div>Mohon barang di cek terlebih dahulu | Komplain lebih dari 1 hari tidak kami layani!</div>
+              <div>Pembayaran selain nomor rekening di atas tidak kami terima atau dianggap belum melakukan pembayaran.</div>
+            </div>
         </div>
-        <div className="summary-row">
-            <span>Bayar</span>
-            <span>{formatCurrencyDotMatrix(totalPaid)}</span>
-        </div>
-        <div className="summary-row total">
-            <span>SISA</span>
-            <span>{formatCurrencyDotMatrix(totalTagihan - totalPaid)}</span>
+
+        {/* Right Side: Summary */}
+        <div className="w-[40%]">
+          <div className="nota-summary">
+            <div className="summary-row">
+                <span>Subtotal</span>
+                <span>{formatCurrencyDotMatrix(totalTagihan)}</span>
+            </div>
+            <div className="summary-row">
+                <span>Bayar</span>
+                <span>{formatCurrencyDotMatrix(totalPaid)}</span>
+            </div>
+            <div className="summary-row total">
+                <span>SISA</span>
+                <span>{formatCurrencyDotMatrix(totalTagihan - totalPaid)}</span>
+            </div>
+          </div>
         </div>
       </div>
-      <hr className="separator" />
-      <div className="nota-footer">
-        <p>Terima kasih atas kepercayaan Anda!</p>
-        <p>Barang yang sudah dibeli tidak dapat dikembalikan.</p>
+
+      {/* Signature */}
+      <div className="flex justify-end mt-8">
+          <div className="text-center">
+              <p>Hormat kami,</p>
+          </div>
       </div>
+
     </div>
   );
 });

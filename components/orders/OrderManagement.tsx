@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
@@ -12,7 +11,7 @@ import { useToast } from '../../hooks/useToast';
 import SPK from './SPK';
 
 export type ProductionStatus = 'Belum Dikerjakan' | 'Proses' | 'Selesai';
-export type PaymentStatus = 'Belum Lunas' | 'DP' | 'Lunas';
+export type PaymentStatus = 'Belum Lunas' | 'Lunas';
 
 export interface OrderItem {
     id: number;
@@ -22,6 +21,7 @@ export interface OrderItem {
     lebar: number;
     qty: number;
     statusProduksi: ProductionStatus;
+    finishing: string;
 }
 
 export interface Payment {
@@ -46,6 +46,8 @@ interface OrderManagementProps {
     bahanList: Bahan[];
     orders: Order[];
     onUpdate: (updatedOrders: Order[]) => void;
+    highlightedItem?: { view: string; id: number | string } | null;
+    clearHighlightedItem?: () => void;
 }
 
 const formatDate = (isoDate: string) => {
@@ -56,7 +58,7 @@ const formatDate = (isoDate: string) => {
     });
 };
 
-const emptyItem: Omit<OrderItem, 'id'> = { bahanId: '', deskripsiPesanan: '', panjang: 0, lebar: 0, qty: 1, statusProduksi: 'Belum Dikerjakan' };
+const emptyItem: Omit<OrderItem, 'id'> = { bahanId: '', deskripsiPesanan: '', panjang: 0, lebar: 0, qty: 1, statusProduksi: 'Belum Dikerjakan', finishing: '' };
 const emptyOrder: Omit<Order, 'id'> = {
     noNota: '',
     tanggal: new Date().toISOString().split('T')[0],
@@ -108,7 +110,7 @@ const calculateTotal = (order: Omit<Order, 'id'>, customers: Customer[], bahanLi
     }, 0);
 };
 
-const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList, orders, onUpdate }) => {
+const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList, orders, onUpdate, highlightedItem, clearHighlightedItem }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [formData, setFormData] = useState<Omit<Order, 'id'>>(emptyOrder);
@@ -119,6 +121,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     
     const [selectedOrderForSpk, setSelectedOrderForSpk] = useState<Order | null>(null);
     const spkRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
     
     const [filters, setFilters] = useState({
         customerId: 'all',
@@ -146,6 +149,30 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
     const currentOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        if (highlightedItem && (highlightedItem.view === 'Order' || highlightedItem.view === 'Transaksi' || highlightedItem.view === 'Produksi') && clearHighlightedItem) {
+            const { id } = highlightedItem;
+            
+            const itemIndex = filteredOrders.findIndex(o => o.id === id);
+            if (itemIndex > -1) {
+                const page = Math.ceil((itemIndex + 1) / ITEMS_PER_PAGE);
+                setCurrentPage(page);
+
+                setTimeout(() => {
+                    const element = itemRefs.current[id as number];
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('bg-orange-100', 'dark:bg-orange-800/50', 'transition-all', 'duration-300');
+                        setTimeout(() => {
+                            element.classList.remove('bg-orange-100', 'dark:bg-orange-800/50');
+                        }, 2500);
+                    }
+                }, 100);
+            }
+            clearHighlightedItem();
+        }
+    }, [highlightedItem, clearHighlightedItem, filteredOrders]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -176,7 +203,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
 
     const paymentStatusOptions = [
         { value: 'Belum Lunas', label: 'Belum Lunas' },
-        { value: 'DP', label: 'DP' },
         { value: 'Lunas', label: 'Lunas' },
     ];
 
@@ -266,10 +292,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
         const nota = order.noNota;
         const bahan = bahanList.find(b => b.id === item.bahanId)?.name || 'N/A';
         const deskripsi = item.deskripsiPesanan || '-';
-        const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}m x ${item.lebar}m` : '-';
-        const qty = `${item.qty} Pcs`;
+        const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}X${item.lebar}` : '-';
+        const qty = `${item.qty}Pcs`;
+        const finishing = item.finishing || '-';
 
-        const textToCopy = [customerName, nota, bahan, deskripsi, ukuran, qty].join('-');
+        const textToCopy = [customerName, nota, bahan, deskripsi, ukuran, qty, finishing].join('//').toUpperCase();
 
         navigator.clipboard.writeText(textToCopy).then(() => {
             addToast('Detail item berhasil disalin!', 'success');
@@ -293,7 +320,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                         <style>
                             @page { margin: 5mm; }
                             body { 
-                                font-family: 'Courier New', Courier, monospace; 
+                                font-family: sans-serif; 
                                 font-size: 10pt; 
                                 color: #000;
                             }
@@ -307,6 +334,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                             .font-bold { font-weight: bold; }
                             .text-lg { font-size: 1.125rem; }
                             .flex { display: flex; }
+                            .w-\\[5\\%\\] { width: 5%; }
                             .w-\\[10\\%\\] { width: 10%; } .w-\\[15\\%\\] { width: 15%; }
                             .w-\\[20\\%\\] { width: 20%; } .w-\\[25\\%\\] { width: 25%; }
                             .w-\\[30\\%\\] { width: 30%; }
@@ -333,7 +361,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
             <div className="hidden">
                 {selectedOrderForSpk && (
                     <SPK
@@ -350,7 +378,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                     onClick={() => handleOpenModal(null)}
                     className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center"
                 >
-                    Tambah Order
+                    Tambah
                 </button>
             </div>
 
@@ -362,8 +390,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                 onReset={handleResetFilters}
             />
             
-            <div className="flex-1 overflow-y-auto">
-                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+            <div className="flex-1 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300 responsive-table">
                     <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50 sticky top-0 backdrop-blur-sm">
                         <tr>
                             <th scope="col" className="px-6 py-3">No. Nota</th>
@@ -373,14 +401,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                             <th scope="col" className="px-6 py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                         {currentOrders.map((order) => (
                            <React.Fragment key={order.id}>
-                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                            <tr 
+                                className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
+                                ref={el => { itemRefs.current[order.id] = el; }}
+                            >
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
-                                <td className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                <td className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
-                                <td className="px-6 py-4 text-center">
+                                <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
+                                <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
+                                <td data-label="Detail Item" className="px-6 py-4 text-center">
                                     <button
                                         onClick={() => toggleExpand(order.id)}
                                         className="flex items-center justify-center w-full space-x-2 text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors"
@@ -389,7 +420,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                         <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${expandedOrderId === order.id ? 'rotate-180' : ''}`} />
                                     </button>
                                 </td>
-                                <td className="px-6 py-4 text-center space-x-2">
+                                <td data-label="Aksi" className="px-6 py-4 text-center space-x-2">
                                     <button onClick={() => handleOpenModal(order)} className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors p-1" title="Edit Pesanan">
                                         <EditIcon className="w-5 h-5" />
                                     </button>
@@ -402,9 +433,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                 </td>
                             </tr>
                             {expandedOrderId === order.id && (
-                                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                                <tr className="bg-slate-50 dark:bg-slate-800/50 md:table-row">
                                     <td colSpan={5} className="p-0">
-                                        <div className="px-6 py-4">
+                                        <div className="px-4 sm:px-6 py-4">
                                             <h4 className="text-md font-semibold text-slate-700 dark:text-slate-200 mb-3">Rincian Item Pesanan:</h4>
                                             <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">
                                                 <table className="w-full text-sm text-left text-slate-600 dark:text-slate-300">
@@ -412,6 +443,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                                         <tr>
                                                             <th scope="col" className="px-4 py-2">Bahan</th>
                                                             <th scope="col" className="px-4 py-2">Deskripsi</th>
+                                                            <th scope="col" className="px-4 py-2">Finishing</th>
                                                             <th scope="col" className="px-4 py-2">Ukuran</th>
                                                             <th scope="col" className="px-4 py-2 text-center">Qty</th>
                                                             <th scope="col" className="px-4 py-2 text-center">Aksi</th>
@@ -424,6 +456,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                                                 <tr key={item.id}>
                                                                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{bahan?.name || 'N/A'}</td>
                                                                     <td className="px-4 py-3">{item.deskripsiPesanan || '-'}</td>
+                                                                    <td className="px-4 py-3">{item.finishing || '-'}</td>
                                                                     <td className="px-4 py-3">{item.panjang > 0 && item.lebar > 0 ? `${item.panjang}m x ${item.lebar}m` : '-'}</td>
                                                                     <td className="px-4 py-3 text-center">{item.qty}</td>
                                                                     <td className="px-4 py-3 text-center">
@@ -461,82 +494,88 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 transition-opacity duration-300" onClick={handleCloseModal}>
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl p-8 m-4" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{editingOrder ? 'Edit Order' : 'Tambah Order Baru'}</h3>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Order Header */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label htmlFor="noNota" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">No. Nota</label>
-                                    <input type="text" name="noNota" id="noNota" value={formData.noNota} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                </div>
-                                <div>
-                                    <label htmlFor="tanggal" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
-                                    <input type="date" name="tanggal" id="tanggal" value={formData.tanggal} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                </div>
-                                <div>
-                                    <label htmlFor="pelangganId" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Pelanggan</label>
-                                    <select name="pelangganId" id="pelangganId" value={formData.pelangganId} onChange={handleFormChange} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
-                                        <option value="" disabled>Pilih Pelanggan</option>
-                                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Order Items */}
-                            <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                                {formData.items.map((item, index) => (
-                                    <div key={item.id} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-4 relative">
-                                        <h4 className="font-semibold text-orange-600">Item #{index + 1}</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                             <div>
-                                                <label htmlFor={`bahanId-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Bahan</label>
-                                                <select name="bahanId" id={`bahanId-${index}`} value={item.bahanId} onChange={(e) => handleItemChange(index, e)} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
-                                                    <option value="" disabled>Pilih Bahan</option>
-                                                    {bahanList.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label htmlFor={`deskripsiPesanan-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Deskripsi Pesanan</label>
-                                                <input type="text" name="deskripsiPesanan" id={`deskripsiPesanan-${index}`} value={item.deskripsiPesanan} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div>
-                                                <label htmlFor={`panjang-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Panjang (m)</label>
-                                                <input type="number" name="panjang" id={`panjang-${index}`} value={item.panjang} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                            </div>
-                                            <div>
-                                                <label htmlFor={`lebar-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Lebar (m)</label>
-                                                <input type="number" name="lebar" id={`lebar-${index}`} value={item.lebar} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                            </div>
-                                            <div>
-                                                <label htmlFor={`qty-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Qty</label>
-                                                <input type="number" name="qty" id={`qty-${index}`} value={item.qty} onChange={(e) => handleItemChange(index, e)} required min="1" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                            </div>
-                                        </div>
-                                        {formData.items.length > 1 && (
-                                            <button type="button" onClick={() => removeItem(index)} className="absolute top-3 right-3 text-red-600 hover:text-red-500 p-1 rounded-full bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500">
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        )}
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl p-6 sm:p-8 m-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex-shrink-0">{editingOrder ? 'Edit Order' : 'Tambah Order Baru'}</h3>
+                         <div className="overflow-y-auto pr-2 -mr-4 flex-1">
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                {/* Order Header */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label htmlFor="noNota" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">No. Nota</label>
+                                        <input type="text" name="noNota" id="noNota" value={formData.noNota} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
                                     </div>
-                                ))}
-                            </div>
-                             <button type="button" onClick={addItem} className="w-full py-2 rounded-lg text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/60 border border-orange-200 dark:border-orange-900/50 transition-colors">Tambah Item</button>
+                                    <div>
+                                        <label htmlFor="tanggal" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
+                                        <input type="date" name="tanggal" id="tanggal" value={formData.tanggal} onChange={handleFormChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="pelangganId" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Pelanggan</label>
+                                        <select name="pelangganId" id="pelangganId" value={formData.pelangganId} onChange={handleFormChange} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
+                                            <option value="" disabled>Pilih Pelanggan</option>
+                                            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
 
-                            {/* Modal Footer */}
-                            <div className="flex justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-700 mt-6">
-                                <div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">Estimasi Total Harga</p>
-                                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-500">{formatCurrency(modalOrderTotal)}</p>
+                                {/* Order Items */}
+                                <div className="space-y-4">
+                                    {formData.items.map((item, index) => (
+                                        <div key={item.id} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-4 relative">
+                                            <h4 className="font-semibold text-orange-600">Item #{index + 1}</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label htmlFor={`bahanId-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Bahan</label>
+                                                    <select name="bahanId" id={`bahanId-${index}`} value={item.bahanId} onChange={(e) => handleItemChange(index, e)} required className="w-full pl-3 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 appearance-none" style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}>
+                                                        <option value="" disabled>Pilih Bahan</option>
+                                                        {bahanList.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label htmlFor={`deskripsiPesanan-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Deskripsi Pesanan</label>
+                                                    <input type="text" name="deskripsiPesanan" id={`deskripsiPesanan-${index}`} value={item.deskripsiPesanan} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor={`finishing-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Finishing</label>
+                                                    <input type="text" name="finishing" id={`finishing-${index}`} value={item.finishing} onChange={(e) => handleItemChange(index, e)} className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div>
+                                                    <label htmlFor={`panjang-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Panjang (m)</label>
+                                                    <input type="number" name="panjang" id={`panjang-${index}`} value={item.panjang} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor={`lebar-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Lebar (m)</label>
+                                                    <input type="number" name="lebar" id={`lebar-${index}`} value={item.lebar} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor={`qty-${index}`} className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Qty</label>
+                                                    <input type="number" name="qty" id={`qty-${index}`} value={item.qty} onChange={(e) => handleItemChange(index, e)} required min="1" className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                                </div>
+                                            </div>
+                                            {formData.items.length > 1 && (
+                                                <button type="button" onClick={() => removeItem(index)} className="absolute top-3 right-3 text-red-600 hover:text-red-500 p-1 rounded-full bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500">
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="flex space-x-4">
-                                    <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingOrder ? 'Simpan Perubahan' : 'Simpan Order'}</button>
+                                <button type="button" onClick={addItem} className="w-full py-2 rounded-lg text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/60 border border-orange-200 dark:border-orange-900/50 transition-colors">Tambah Item</button>
+
+                                {/* Modal Footer */}
+                                <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-slate-200 dark:border-slate-700 mt-6 flex-shrink-0 gap-4">
+                                    <div>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Estimasi Total Harga</p>
+                                        <p className="text-2xl font-bold text-orange-600 dark:text-orange-500">{formatCurrency(modalOrderTotal)}</p>
+                                    </div>
+                                    <div className="flex space-x-4">
+                                        <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
+                                        <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingOrder ? 'Simpan Perubahan' : 'Simpan Order'}</button>
+                                    </div>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
+                         </div>
                     </div>
                 </div>
             )}

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
@@ -99,18 +98,18 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700 h-full flex flex-col">
             <div className="flex justify-between items-center mb-6 flex-shrink-0">
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Manajemen Bahan & Harga</h2>
                 <button
                     onClick={() => handleOpenModal(null)}
                     className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center"
                 >
-                    Tambah Bahan
+                    Tambah
                 </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+            <div className="flex-1 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                 <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300 responsive-table">
                     <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50 sticky top-0 backdrop-blur-sm">
                         <tr>
                             <th scope="col" className="px-6 py-3">Nama Bahan</th>
@@ -122,16 +121,16 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
                             <th scope="col" className="px-6 py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                         {currentBahanList.map((bahan) => (
                             <tr key={bahan.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{bahan.name}</th>
-                                <td className="px-6 py-4 text-right">{formatCurrency(bahan.hargaEndCustomer)}</td>
-                                <td className="px-6 py-4 text-right">{formatCurrency(bahan.hargaRetail)}</td>
-                                <td className="px-6 py-4 text-right">{formatCurrency(bahan.hargaGrosir)}</td>
-                                <td className="px-6 py-4 text-right">{formatCurrency(bahan.hargaReseller)}</td>
-                                <td className="px-6 py-4 text-right">{formatCurrency(bahan.hargaCorporate)}</td>
-                                <td className="px-6 py-4 text-center space-x-3">
+                                <td data-label="End Customer" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaEndCustomer)}</td>
+                                <td data-label="Retail" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaRetail)}</td>
+                                <td data-label="Grosir" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaGrosir)}</td>
+                                <td data-label="Reseller" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaReseller)}</td>
+                                <td data-label="Corporate" className="px-6 py-4 text-right">{formatCurrency(bahan.hargaCorporate)}</td>
+                                <td data-label="Aksi" className="px-6 py-4 text-center space-x-3">
                                     <button onClick={() => handleOpenModal(bahan)} className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors p-1">
                                         <EditIcon className="w-5 h-5" />
                                     </button>
@@ -149,40 +148,42 @@ const BahanManagement: React.FC<BahanManagementProps> = ({ bahanList, onUpdate }
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 transition-opacity duration-300" onClick={handleCloseModal}>
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl p-8 m-4" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">{editingBahan ? 'Edit Bahan' : 'Tambah Bahan Baru'}</h3>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nama Bahan</label>
-                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300" />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 m-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex-shrink-0">{editingBahan ? 'Edit Bahan' : 'Tambah Bahan Baru'}</h3>
+                         <div className="overflow-y-auto pr-2 -mr-4 flex-1">
+                            <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
-                                    <label htmlFor="hargaEndCustomer" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga End Customer</label>
-                                    <input type="number" name="hargaEndCustomer" id="hargaEndCustomer" value={formData.hargaEndCustomer} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    <label htmlFor="name" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nama Bahan</label>
+                                    <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-300" />
                                 </div>
-                                <div>
-                                    <label htmlFor="hargaRetail" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Retail</label>
-                                    <input type="number" name="hargaRetail" id="hargaRetail" value={formData.hargaRetail} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div>
+                                        <label htmlFor="hargaEndCustomer" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga End Customer</label>
+                                        <input type="number" name="hargaEndCustomer" id="hargaEndCustomer" value={formData.hargaEndCustomer} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="hargaRetail" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Retail</label>
+                                        <input type="number" name="hargaRetail" id="hargaRetail" value={formData.hargaRetail} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="hargaGrosir" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Grosir</label>
+                                        <input type="number" name="hargaGrosir" id="hargaGrosir" value={formData.hargaGrosir} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="hargaReseller" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Reseller</label>
+                                        <input type="number" name="hargaReseller" id="hargaReseller" value={formData.hargaReseller} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="hargaCorporate" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Corporate</label>
+                                        <input type="number" name="hargaCorporate" id="hargaCorporate" value={formData.hargaCorporate} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label htmlFor="hargaGrosir" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Grosir</label>
-                                    <input type="number" name="hargaGrosir" id="hargaGrosir" value={formData.hargaGrosir} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
+                                <div className="flex justify-end space-x-4 pt-4 flex-shrink-0">
+                                    <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
+                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingBahan ? 'Simpan Perubahan' : 'Simpan'}</button>
                                 </div>
-                                <div>
-                                    <label htmlFor="hargaReseller" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Reseller</label>
-                                    <input type="number" name="hargaReseller" id="hargaReseller" value={formData.hargaReseller} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                </div>
-                                <div>
-                                    <label htmlFor="hargaCorporate" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Harga Corporate</label>
-                                    <input type="number" name="hargaCorporate" id="hargaCorporate" value={formData.hargaCorporate} onChange={handleInputChange} required className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                                </div>
-                            </div>
-                            <div className="flex justify-end space-x-4 pt-4">
-                                <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingBahan ? 'Simpan Perubahan' : 'Simpan'}</button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}

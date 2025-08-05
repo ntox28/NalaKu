@@ -7,9 +7,10 @@ import NalaKuLogo from './icons/NalaKuLogo';
 export type UserLevel = 'Admin' | 'Kasir' | 'Produksi' | 'Office';
 
 export interface User {
-    id: string;
+    id: string; // username for login
     password: string;
     level: UserLevel;
+    employeeId: number; // Link to Employee
 }
 
 interface LoginProps {

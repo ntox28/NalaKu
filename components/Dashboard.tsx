@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import MainContent from './MainContent';
+import MainContent, { HighlightItem } from './MainContent';
 import DashboardIcon from './icons/DashboardIcon';
 import FinanceIcon from './icons/FinanceIcon';
 import OrderIcon from './icons/OrderIcon';
@@ -52,21 +51,42 @@ const allMenuItems = [
 
 const DashboardComponent: React.FC<DashboardProps> = (props) => {
   const { user, onLogout } = props;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const visibleMenuItems = useMemo(() => {
     return allMenuItems.filter(item => item.roles.includes(user.level));
   }, [user.level]);
 
   const [activeView, setActiveView] = useState(visibleMenuItems[0]?.name || 'Dashboard');
+  const [highlightedItem, setHighlightedItem] = useState<HighlightItem | null>(null);
+
+  const handleSearchResultSelect = (view: string, id: number | string) => {
+    setActiveView(view);
+    setHighlightedItem({ view, id });
+  };
+  
+  const handleMenuClick = (viewName: string) => {
+    setActiveView(viewName);
+    if(window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+    }
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+          <div 
+              className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+          ></div>
+      )}
       {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-        <div className="h-20 flex items-center justify-center border-b border-slate-200 dark:border-slate-700">
+      <aside className={`fixed lg:relative inset-y-0 left-0 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex-col z-30 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:flex`}>
+        <div className="h-20 flex items-center justify-center border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <h1 className="text-2xl font-bold text-orange-600">NalaKu</h1>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto no-scrollbar">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.name;
@@ -76,7 +96,7 @@ const DashboardComponent: React.FC<DashboardProps> = (props) => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  setActiveView(item.name);
+                  handleMenuClick(item.name);
                 }}
                 className={`flex items-center px-4 py-3 rounded-lg transition-colors duration-200 ${
                   isActive
@@ -107,6 +127,10 @@ const DashboardComponent: React.FC<DashboardProps> = (props) => {
         <MainContent 
             {...props}
             activeView={activeView} 
+            onSearchResultSelect={handleSearchResultSelect}
+            highlightedItem={highlightedItem}
+            clearHighlightedItem={() => setHighlightedItem(null)}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
       </main>
     </div>

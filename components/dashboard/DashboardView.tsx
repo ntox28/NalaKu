@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from 'recharts';
 import { Order } from '../orders/OrderManagement';
@@ -31,6 +30,7 @@ const formatDate = (isoDate: string) => {
     return new Date(isoDate).toLocaleDateString('id-ID', {
         day: 'numeric',
         month: 'short',
+        year: 'numeric'
     });
 };
 
@@ -40,7 +40,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
     
     // Pagination state for recent orders
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 10;
+    const ITEMS_PER_PAGE = 5;
     
     // Stats Cards Data
     const totalOrders = orders.length;
@@ -57,7 +57,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
         date.setDate(today.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
         return {
-            name: formatDate(dateStr),
+            name: date.toLocaleDateString('id-ID', { weekday: 'short' }),
             orders: orders.filter(o => o.tanggal === dateStr).length,
         };
     }).reverse();
@@ -72,7 +72,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
     const PIE_COLORS = {
         'Selesai': '#22c55e', // green-500
         'Proses': '#f59e0b', // amber-500
-        'Belum Dikerjakan': theme === 'dark' ? '#475569' : '#64748b', // slate-600 / slate-500
+        'Belum Dikerjakan': theme === 'dark' ? '#475569' : '#94a3b8', // slate-600 / slate-400
     };
 
     const sortedRecentOrders = useMemo(() => [...orders].sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()), [orders]);
@@ -86,7 +86,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
     return (
         <div className="space-y-8">
             {/* Stat Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Total Pesanan" value={totalOrders.toString()} icon={<OrderIcon />} />
                 <StatCard title="Pesanan Aktif" value={activeOrders.toString()} icon={<ClipboardListIcon />} />
                 <StatCard title="Item Perlu Diproses" value={itemsToProcess.toString()} icon={<ProductionIcon />} />
@@ -128,6 +128,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
                                 outerRadius={100} 
                                 labelLine={false}
                                 label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                    if (percent === 0) return null;
                                     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
                                     const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
                                     const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
@@ -157,10 +158,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
             </div>
 
              {/* Recent Activity */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Aktivitas Terbaru</h3>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+                    <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300 responsive-table">
                         <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50">
                             <tr>
                                 <th scope="col" className="px-6 py-3">No. Nota</th>
@@ -169,13 +170,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ orders, customers, expens
                                 <th scope="col" className="px-6 py-3 text-right">Status Bayar</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700 md:divide-y-0">
                             {currentOrders.map(order => (
                                 <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{order.noNota}</td>
-                                    <td className="px-6 py-4">{customers.find(c => c.id === order.pelangganId)?.name || 'N/A'}</td>
-                                    <td className="px-6 py-4">{formatDate(order.tanggal)}</td>
-                                    <td className="px-6 py-4 text-right">{order.statusPembayaran}</td>
+                                    <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{order.noNota}</th>
+                                    <td data-label="Pelanggan" className="px-6 py-4">{customers.find(c => c.id === order.pelangganId)?.name || 'N/A'}</td>
+                                    <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
+                                    <td data-label="Status Bayar" className="px-6 py-4 text-right">{order.statusPembayaran}</td>
                                 </tr>
                             ))}
                         </tbody>

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoginComponent, { User } from './components/Login';
 import DashboardComponent from './components/Dashboard';
 import { Customer } from './components/customers/CustomerManagement';
@@ -14,10 +14,10 @@ import { ThemeProvider } from './hooks/useTheme';
 
 
 const initialUsers: User[] = [
-    { id: 'admin', password: 'admin', level: 'Admin' },
-    { id: 'kasir', password: 'kasir', level: 'Kasir' },
-    { id: 'produksi', password: 'produksi', level: 'Produksi' },
-    { id: 'office', password: 'office', level: 'Office' },
+    { id: 'admin', password: 'admin', level: 'Admin', employeeId: 1 },
+    { id: 'kasir', password: 'kasir', level: 'Kasir', employeeId: 2 },
+    { id: 'produksi', password: 'produksi', level: 'Produksi', employeeId: 4 },
+    { id: 'office', password: 'office', level: 'Office', employeeId: 5 },
 ];
 
 const initialCustomers: Customer[] = [
@@ -38,7 +38,7 @@ const initialBahan: Bahan[] = [
 ];
 
 const initialEmployees: Employee[] = [
-    { id: 1, name: 'Andi Wijaya', position: 'Sales', email: 'andi.w@example.com', phone: '081122334455' },
+    { id: 1, name: 'Andi Wijaya', position: 'Admin', email: 'andi.w@example.com', phone: '081122334455' },
     { id: 2, name: 'Siti Aminah', position: 'Kasir', email: 'siti.a@example.com', phone: '081234567891' },
     { id: 3, name: 'Rina Fauziah', position: 'Designer', email: 'rina.f@example.com', phone: '082233445566' },
     { id: 4, name: 'Joko Susilo', position: 'Produksi', email: 'joko.s@example.com', phone: '085566778899' },
@@ -57,30 +57,30 @@ const initialOrders: Order[] = [
     { 
         id: 1, noNota: 'INV-001', tanggal: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 1, pelaksanaId: 'produksi', statusPembayaran: 'Lunas',
         payments: [{ amount: 374000, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], kasirId: 'kasir' }],
-        items: [{ id: 101, bahanId: 1, deskripsiPesanan: 'Banner untuk Toko', panjang: 2, lebar: 1, qty: 2, statusProduksi: 'Selesai' }]
+        items: [{ id: 101, bahanId: 1, deskripsiPesanan: 'Banner untuk Toko', panjang: 2, lebar: 1, qty: 2, statusProduksi: 'Selesai', finishing: 'Mata Ayam' }]
     },
     { 
         id: 2, noNota: 'INV-002', tanggal: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 5, pelaksanaId: 'produksi', statusPembayaran: 'Lunas',
         payments: [{ amount: 2200000, date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], kasirId: 'kasir' }],
-        items: [{ id: 102, bahanId: 5, deskripsiPesanan: 'Sticker Kaca Kantor', panjang: 5, lebar: 2, qty: 4, statusProduksi: 'Selesai' }]
+        items: [{ id: 102, bahanId: 5, deskripsiPesanan: 'Sticker Kaca Kantor', panjang: 5, lebar: 2, qty: 4, statusProduksi: 'Selesai', finishing: 'Cutting' }]
     },
     { 
         id: 3, noNota: 'INV-003', tanggal: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 2, pelaksanaId: 'produksi', statusPembayaran: 'Belum Lunas',
         payments: [],
         items: [
-            { id: 103, bahanId: 3, deskripsiPesanan: 'Brosur Promosi', panjang: 0, lebar: 0, qty: 500, statusProduksi: 'Selesai' },
-            { id: 104, bahanId: 6, deskripsiPesanan: 'Sticker Logo', panjang: 0, lebar: 0, qty: 100, statusProduksi: 'Selesai' }
+            { id: 103, bahanId: 3, deskripsiPesanan: 'Brosur Promosi', panjang: 0, lebar: 0, qty: 500, statusProduksi: 'Selesai', finishing: 'Potong Lurus' },
+            { id: 104, bahanId: 6, deskripsiPesanan: 'Sticker Logo', panjang: 0, lebar: 0, qty: 100, statusProduksi: 'Selesai', finishing: 'Kiss-cut' }
         ]
     },
     { 
         id: 4, noNota: 'INV-004', tanggal: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 3, pelaksanaId: null, statusPembayaran: 'Belum Lunas',
         payments: [],
-        items: [{ id: 105, bahanId: 2, deskripsiPesanan: 'Spanduk Event', panjang: 5, lebar: 1, qty: 5, statusProduksi: 'Proses' }]
+        items: [{ id: 105, bahanId: 2, deskripsiPesanan: 'Spanduk Event', panjang: 5, lebar: 1, qty: 5, statusProduksi: 'Proses', finishing: 'Slongsong' }]
     },
      { 
         id: 5, noNota: 'INV-005', tanggal: new Date().toISOString().split('T')[0], pelangganId: 4, pelaksanaId: null, statusPembayaran: 'Belum Lunas',
         payments: [],
-        items: [{ id: 106, bahanId: 4, deskripsiPesanan: 'Kartu Nama', panjang: 0, lebar: 0, qty: 200, statusProduksi: 'Belum Dikerjakan' }]
+        items: [{ id: 106, bahanId: 4, deskripsiPesanan: 'Kartu Nama', panjang: 0, lebar: 0, qty: 200, statusProduksi: 'Belum Dikerjakan', finishing: 'Laminasi Doff' }]
     },
 ];
 
@@ -94,6 +94,18 @@ const App: React.FC = () => {
   const [orders, setOrders] = useLocalStorage<Order[]>('nala-app:orders', initialOrders);
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('nala-app:expenses', initialExpenses);
 
+  useEffect(() => {
+    const requiresMigration = orders.some(o => (o.statusPembayaran as any) === 'DP');
+    if (requiresMigration) {
+      console.log("Migrating 'DP' status to 'Belum Lunas' for compatibility.");
+      setOrders(currentOrders => currentOrders.map(o => {
+        if ((o.statusPembayaran as any) === 'DP') {
+          return { ...o, statusPembayaran: 'Belum Lunas' };
+        }
+        return o;
+      }));
+    }
+  }, [orders, setOrders]);
 
   const handleLoginSuccess = (user: User) => {
     setLoggedInUser(user);
