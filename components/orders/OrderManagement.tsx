@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import EditIcon from '../icons/EditIcon';
 import TrashIcon from '../icons/TrashIcon';
@@ -9,9 +11,12 @@ import Pagination from '../Pagination';
 import FilterBar from '../FilterBar';
 import { useToast } from '../../hooks/useToast';
 import SPK from './SPK';
+import { User } from '../Login';
+import PlayCircleIcon from '../icons/PlayCircleIcon';
 
 export type ProductionStatus = 'Belum Dikerjakan' | 'Proses' | 'Selesai';
 export type PaymentStatus = 'Belum Lunas' | 'Lunas';
+export type OrderStatus = 'Pending' | 'Proses';
 
 export interface OrderItem {
     id: number;
@@ -38,6 +43,7 @@ export interface Order {
     items: OrderItem[];
     pelaksanaId: string | null;
     statusPembayaran: PaymentStatus;
+    statusPesanan: OrderStatus;
     payments: Payment[];
 }
 
@@ -45,7 +51,8 @@ interface OrderManagementProps {
     customers: Customer[];
     bahanList: Bahan[];
     orders: Order[];
-    onUpdate: (updatedOrders: Order[]) => void;
+    onUpdate: (updatedOrders: Order[] | ((orders: Order[]) => Order[])) => void;
+    loggedInUser: User;
     highlightedItem?: { view: string; id: number | string } | null;
     clearHighlightedItem?: () => void;
 }
@@ -66,6 +73,7 @@ const emptyOrder: Omit<Order, 'id'> = {
     items: [{ ...emptyItem, id: Date.now() }],
     pelaksanaId: null,
     statusPembayaran: 'Belum Lunas',
+    statusPesanan: 'Pending',
     payments: [],
 };
 
@@ -110,7 +118,7 @@ const calculateTotal = (order: Omit<Order, 'id'>, customers: Customer[], bahanLi
     }, 0);
 };
 
-const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList, orders, onUpdate, highlightedItem, clearHighlightedItem }) => {
+const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList, orders, onUpdate, loggedInUser, highlightedItem, clearHighlightedItem }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [formData, setFormData] = useState<Omit<Order, 'id'>>(emptyOrder);
@@ -256,17 +264,45 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (editingOrder) {
-            const updatedOrderData = { ...formData, id: editingOrder.id, payments: editingOrder.payments, statusPembayaran: editingOrder.statusPembayaran };
+            const updatedOrderData = { 
+                ...formData, 
+                id: editingOrder.id, 
+                payments: editingOrder.payments, 
+                statusPembayaran: editingOrder.statusPembayaran,
+                statusPesanan: editingOrder.statusPesanan // Preserve existing status
+            };
             onUpdate(orders.map(o => o.id === editingOrder.id ? updatedOrderData : o));
             addToast('Order berhasil diperbarui!', 'success');
         } else {
-            const newOrder: Order = { ...formData, id: Date.now(), payments: [], statusPembayaran: 'Belum Lunas' };
+            const newOrder: Order = { 
+                ...formData, 
+                id: Date.now(), 
+                payments: [], 
+                statusPembayaran: 'Belum Lunas',
+                statusPesanan: 'Pending'
+            };
             const updatedOrders = [...orders, newOrder];
             onUpdate(updatedOrders);
             setCurrentPage(1); // Go to the first page to see the newest item
             addToast('Order berhasil ditambahkan!', 'success');
         }
         handleCloseModal();
+    };
+    
+    const handleProcessOrder = (orderId: number) => {
+        const orderToProcess = orders.find(o => o.id === orderId);
+        if (!orderToProcess) return;
+
+        if (window.confirm(`Proses pesanan untuk Nota ${orderToProcess.noNota}? Anda akan ditetapkan sebagai pelaksana.`)) {
+            onUpdate(currentOrders => 
+                currentOrders.map(order =>
+                    order.id === orderId
+                        ? { ...order, statusPesanan: 'Proses', pelaksanaId: loggedInUser.id }
+                        : order
+                )
+            );
+            addToast(`Pesanan ${orderToProcess.noNota} telah diproses.`, 'success');
+        }
     };
 
     const handleDelete = (orderId: number) => {
@@ -397,6 +433,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                             <th scope="col" className="px-6 py-3">No. Nota</th>
                             <th scope="col" className="px-6 py-3">Tanggal</th>
                             <th scope="col" className="px-6 py-3">Pelanggan</th>
+                            <th scope="col" className="px-6 py-3 text-center">Status Pesanan</th>
                             <th scope="col" className="px-6 py-3 text-center">Detail Item</th>
                             <th scope="col" className="px-6 py-3 text-center">Aksi</th>
                         </tr>
@@ -411,6 +448,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                 <th scope="row" className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{order.noNota}</th>
                                 <td data-label="Tanggal" className="px-6 py-4">{formatDate(order.tanggal)}</td>
                                 <td data-label="Pelanggan" className="px-6 py-4">{getCustomerName(order.pelangganId)}</td>
+                                <td data-label="Status Pesanan" className="px-6 py-4 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                        order.statusPesanan === 'Proses'
+                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
+                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                                    }`}>
+                                        {order.statusPesanan}
+                                    </span>
+                                </td>
                                 <td data-label="Detail Item" className="px-6 py-4 text-center">
                                     <button
                                         onClick={() => toggleExpand(order.id)}
@@ -421,6 +467,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                                     </button>
                                 </td>
                                 <td data-label="Aksi" className="px-6 py-4 text-center space-x-2">
+                                    {order.statusPesanan === 'Pending' && (
+                                        <button
+                                            onClick={() => handleProcessOrder(order.id)}
+                                            className="text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition-colors p-1"
+                                            title="Proses Pesanan"
+                                        >
+                                            <PlayCircleIcon className="w-5 h-5" />
+                                        </button>
+                                    )}
                                     <button onClick={() => handleOpenModal(order)} className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors p-1" title="Edit Pesanan">
                                         <EditIcon className="w-5 h-5" />
                                     </button>
@@ -434,7 +489,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ customers, bahanList,
                             </tr>
                             {expandedOrderId === order.id && (
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 md:table-row">
-                                    <td colSpan={5} className="p-0">
+                                    <td colSpan={6} className="p-0">
                                         <div className="px-4 sm:px-6 py-4">
                                             <h4 className="text-md font-semibold text-slate-700 dark:text-slate-200 mb-3">Rincian Item Pesanan:</h4>
                                             <div className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">

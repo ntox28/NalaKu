@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import CustomerManagement, { Customer } from './customers/CustomerManagement';
 import EmployeeManagement, { Employee } from './employees/EmployeeManagement';
@@ -30,7 +32,7 @@ interface MainContentProps {
   employees: Employee[];
   onEmployeesUpdate: (employees: Employee[]) => void;
   orders: Order[];
-  onOrdersUpdate: (orders: Order[]) => void;
+  onOrdersUpdate: (orders: Order[] | ((orders: Order[]) => Order[])) => void;
   expenses: Expense[];
   onExpensesUpdate: (expenses: Expense[]) => void;
   onSearchResultSelect: (view: string, id: number | string) => void;
@@ -79,7 +81,7 @@ const MainContent: React.FC<MainContentProps> = (props) => {
       case 'Keuangan':
         return <FinanceView orders={orders} expenses={expenses} customers={customers} bahanList={bahanList} users={users} />;
       case 'Order':
-        return <OrderManagement customers={customers} bahanList={bahanList} orders={orders} onUpdate={onOrdersUpdate} {...highlightProps}/>;
+        return <OrderManagement customers={customers} bahanList={bahanList} orders={orders} onUpdate={onOrdersUpdate} loggedInUser={user} {...highlightProps}/>;
       case 'Produksi':
         return <ProductionManagement orders={orders} onUpdate={onOrdersUpdate} customers={customers} bahanList={bahanList} loggedInUser={user} {...highlightProps}/>;
       case 'Transaksi':

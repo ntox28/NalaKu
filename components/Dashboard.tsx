@@ -31,7 +31,7 @@ interface DashboardProps {
   employees: Employee[];
   onEmployeesUpdate: (employees: Employee[]) => void;
   orders: Order[];
-  onOrdersUpdate: (orders: Order[]) => void;
+  onOrdersUpdate: (orders: Order[] | ((orders: Order[]) => Order[])) => void;
   expenses: Expense[];
   onExpensesUpdate: (expenses: Expense[]) => void;
 }
@@ -84,7 +84,10 @@ const DashboardComponent: React.FC<DashboardProps> = (props) => {
       {/* Sidebar */}
       <aside className={`fixed lg:relative inset-y-0 left-0 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex-col z-30 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:flex`}>
         <div className="h-20 flex items-center justify-center border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h1 className="text-2xl font-bold text-orange-600">NalaKu</h1>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-orange-600">NalaKu</h1>
+            <p className="text-xs italic text-slate-500 dark:text-slate-400 -mt-1">Satu Aplikasi, Seribu Solusi</p>
+          </div>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto no-scrollbar">
           {visibleMenuItems.map((item) => {

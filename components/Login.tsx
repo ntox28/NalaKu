@@ -48,7 +48,7 @@ const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
             <div className="text-center">
                 <NalaKuLogo className="w-20 h-20 mx-auto mb-4" />
                 <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">NalaKu</h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-2">Masuk dengan akunmu untuk melanjutkan.</p>
+                <p className="text-slate-600 dark:text-slate-400 mt-2">Satu Aplikasi, Seribu Solusi</p>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -96,8 +96,9 @@ const LoginComponent: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
                     </div>
 
                     <div className="text-sm">
-                        <a href="#" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
-                            Lupa kata sandi?
+                        <a href="https://wa.me/6282247770012?text=Assalamualaikum%2C%20Saya%20lupa%20Password%20masuk%20ke%20Aplikasi%20NalaKu.Boleh%20saya%20minta%20Id%20dan%20Password%20saya%3F
+" className="font-medium text-orange-600 hover:text-orange-500 transition-colors">
+                            Tanya sandi?
                         </a>
                     </div>
                 </div>

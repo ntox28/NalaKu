@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { Customer, CustomerLevel } from '../customers/CustomerManagement';
@@ -137,8 +138,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ orders, o
     const transactions = useMemo(() => {
         return orders
             .filter(order => {
-                const isTransaction = order.items.some(item => item.statusProduksi === 'Proses' || item.statusProduksi === 'Selesai');
-                if (!isTransaction) return false;
+                if (order.statusPesanan !== 'Proses') return false;
 
                 const customerMatch = filters.customerId === 'all' || order.pelangganId === Number(filters.customerId);
                 const startDateMatch = !filters.startDate || order.tanggal >= filters.startDate;

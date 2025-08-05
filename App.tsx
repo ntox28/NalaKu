@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import LoginComponent, { User } from './components/Login';
 import DashboardComponent from './components/Dashboard';
@@ -7,7 +8,7 @@ import { Bahan } from './components/bahan/BahanManagement';
 import { Order, Payment } from './components/orders/OrderManagement';
 import { Employee } from './components/employees/EmployeeManagement';
 import { Expense } from './components/expenses/ExpenseManagement';
-import { ToastProvider } from './hooks/useToast';
+import { ToastProvider, useToast } from './hooks/useToast';
 import ToastContainer from './components/toasts/ToastContainer';
 import useLocalStorage from './hooks/useLocalStorage';
 import { ThemeProvider } from './hooks/useTheme';
@@ -55,17 +56,17 @@ const initialExpenses: Expense[] = [
 
 const initialOrders: Order[] = [
     { 
-        id: 1, noNota: 'INV-001', tanggal: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 1, pelaksanaId: 'produksi', statusPembayaran: 'Lunas',
+        id: 1, noNota: 'INV-001', tanggal: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 1, pelaksanaId: 'produksi', statusPembayaran: 'Lunas', statusPesanan: 'Proses',
         payments: [{ amount: 374000, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], kasirId: 'kasir' }],
         items: [{ id: 101, bahanId: 1, deskripsiPesanan: 'Banner untuk Toko', panjang: 2, lebar: 1, qty: 2, statusProduksi: 'Selesai', finishing: 'Mata Ayam' }]
     },
     { 
-        id: 2, noNota: 'INV-002', tanggal: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 5, pelaksanaId: 'produksi', statusPembayaran: 'Lunas',
+        id: 2, noNota: 'INV-002', tanggal: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 5, pelaksanaId: 'produksi', statusPembayaran: 'Lunas', statusPesanan: 'Proses',
         payments: [{ amount: 2200000, date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], kasirId: 'kasir' }],
         items: [{ id: 102, bahanId: 5, deskripsiPesanan: 'Sticker Kaca Kantor', panjang: 5, lebar: 2, qty: 4, statusProduksi: 'Selesai', finishing: 'Cutting' }]
     },
     { 
-        id: 3, noNota: 'INV-003', tanggal: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 2, pelaksanaId: 'produksi', statusPembayaran: 'Belum Lunas',
+        id: 3, noNota: 'INV-003', tanggal: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 2, pelaksanaId: 'produksi', statusPembayaran: 'Belum Lunas', statusPesanan: 'Proses',
         payments: [],
         items: [
             { id: 103, bahanId: 3, deskripsiPesanan: 'Brosur Promosi', panjang: 0, lebar: 0, qty: 500, statusProduksi: 'Selesai', finishing: 'Potong Lurus' },
@@ -73,16 +74,61 @@ const initialOrders: Order[] = [
         ]
     },
     { 
-        id: 4, noNota: 'INV-004', tanggal: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 3, pelaksanaId: null, statusPembayaran: 'Belum Lunas',
+        id: 4, noNota: 'INV-004', tanggal: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], pelangganId: 3, pelaksanaId: null, statusPembayaran: 'Belum Lunas', statusPesanan: 'Pending',
         payments: [],
         items: [{ id: 105, bahanId: 2, deskripsiPesanan: 'Spanduk Event', panjang: 5, lebar: 1, qty: 5, statusProduksi: 'Proses', finishing: 'Slongsong' }]
     },
      { 
-        id: 5, noNota: 'INV-005', tanggal: new Date().toISOString().split('T')[0], pelangganId: 4, pelaksanaId: null, statusPembayaran: 'Belum Lunas',
+        id: 5, noNota: 'INV-005', tanggal: new Date().toISOString().split('T')[0], pelangganId: 4, pelaksanaId: null, statusPembayaran: 'Belum Lunas', statusPesanan: 'Pending',
         payments: [],
         items: [{ id: 106, bahanId: 4, deskripsiPesanan: 'Kartu Nama', panjang: 0, lebar: 0, qty: 200, statusProduksi: 'Belum Dikerjakan', finishing: 'Laminasi Doff' }]
     },
+    { 
+        id: 6, noNota: 'INV-006', tanggal: new Date().toISOString().split('T')[0], pelangganId: 1, pelaksanaId: 'produksi', statusPembayaran: 'Belum Lunas', statusPesanan: 'Proses',
+        payments: [],
+        items: [
+            { id: 107, bahanId: 1, deskripsiPesanan: 'Banner Promosi Besar', panjang: 5, lebar: 2, qty: 1, statusProduksi: 'Proses', finishing: 'Mata Ayam Pojok' },
+            { id: 108, bahanId: 2, deskripsiPesanan: 'Spanduk HUT RI', panjang: 3, lebar: 1, qty: 5, statusProduksi: 'Proses', finishing: 'Slongsong Atas Bawah' },
+            { id: 109, bahanId: 3, deskripsiPesanan: 'Kartu Nama Pribadi', panjang: 0, lebar: 0, qty: 100, statusProduksi: 'Selesai', finishing: 'Potong Sesuai Ukuran' },
+            { id: 110, bahanId: 4, deskripsiPesanan: 'Undangan Pernikahan', panjang: 0, lebar: 0, qty: 300, statusProduksi: 'Selesai', finishing: 'Laminasi Glossy + Lipat' },
+            { id: 111, bahanId: 5, deskripsiPesanan: 'Stiker Kaca Belakang Mobil', panjang: 1, lebar: 0.5, qty: 2, statusProduksi: 'Selesai', finishing: 'Cutting Sesuai Pola' },
+            { id: 112, bahanId: 6, deskripsiPesanan: 'Label Produk Makanan', panjang: 0, lebar: 0, qty: 1000, statusProduksi: 'Selesai', finishing: 'Kiss-cut per lembar A3' },
+            { id: 113, bahanId: 1, deskripsiPesanan: 'Backdrop Panggung Acara', panjang: 4, lebar: 3, qty: 1, statusProduksi: 'Belum Dikerjakan', finishing: 'Tanpa Finishing (lembaran)' },
+            { id: 114, bahanId: 3, deskripsiPesanan: 'Poster Edukasi A3+', panjang: 0, lebar: 0, qty: 50, statusProduksi: 'Belum Dikerjakan', finishing: 'Tanpa Finishing' },
+            { id: 115, bahanId: 6, deskripsiPesanan: 'Stiker Branding Laptop', panjang: 0, lebar: 0, qty: 20, statusProduksi: 'Belum Dikerjakan', finishing: 'Die-cut' },
+            { id: 116, bahanId: 4, deskripsiPesanan: 'Sertifikat Pelatihan', panjang: 0, lebar: 0, qty: 15, statusProduksi: 'Belum Dikerjakan', finishing: 'Cetak 1 Sisi' }
+        ]
+    },
 ];
+
+const DataMigrationManager: React.FC<{
+  orders: Order[];
+  setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
+}> = ({ orders, setOrders }) => {
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    const requiresMigrationV1 = orders.some(o => (o.statusPembayaran as any) === 'DP');
+    const requiresMigrationV2 = orders.some(o => !o.hasOwnProperty('statusPesanan'));
+    
+    if (requiresMigrationV1 || requiresMigrationV2) {
+      console.log("Running data migration for order structure...");
+      setOrders(currentOrders => currentOrders.map(o => {
+          let updatedOrder = { ...o };
+          if ((o.statusPembayaran as any) === 'DP') {
+              updatedOrder.statusPembayaran = 'Belum Lunas';
+          }
+          if (!o.hasOwnProperty('statusPesanan')) {
+              updatedOrder.statusPesanan = 'Proses';
+          }
+          return updatedOrder;
+      }));
+       addToast('Data pesanan berhasil dimigrasi ke versi terbaru.', 'info');
+    }
+  }, [orders, setOrders, addToast]);
+
+  return null; // This component does not render anything visible
+};
 
 const App: React.FC = () => {
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
@@ -93,19 +139,6 @@ const App: React.FC = () => {
   const [employees, setEmployees] = useLocalStorage<Employee[]>('nala-app:employees', initialEmployees);
   const [orders, setOrders] = useLocalStorage<Order[]>('nala-app:orders', initialOrders);
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('nala-app:expenses', initialExpenses);
-
-  useEffect(() => {
-    const requiresMigration = orders.some(o => (o.statusPembayaran as any) === 'DP');
-    if (requiresMigration) {
-      console.log("Migrating 'DP' status to 'Belum Lunas' for compatibility.");
-      setOrders(currentOrders => currentOrders.map(o => {
-        if ((o.statusPembayaran as any) === 'DP') {
-          return { ...o, statusPembayaran: 'Belum Lunas' };
-        }
-        return o;
-      }));
-    }
-  }, [orders, setOrders]);
 
   const handleLoginSuccess = (user: User) => {
     setLoggedInUser(user);
@@ -118,6 +151,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
         <ToastProvider>
+            <DataMigrationManager orders={orders} setOrders={setOrders} />
             <div className="min-h-screen bg-gray-100 dark:bg-slate-900 selection:bg-orange-500 selection:text-white">
             <ToastContainer />
             {loggedInUser ? (

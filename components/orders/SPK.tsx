@@ -50,12 +50,11 @@ const SPK = forwardRef<HTMLDivElement, SPKProps>(({ order, customer, bahanList }
                     return (
                         <div key={item.id} className="flex mb-1">
                             <div className="w-[10%] pr-1 align-top">{index + 1}.</div>
-                            <div className="w-[90%]">
-                                <p className="font-bold break-words">{bahan?.name || 'Bahan Tidak Ditemukan'}</p>
-                                <div className="pl-4 leading-tight">
-                                    <p className="break-words">{deskripsi}//{ukuran}//{qty}</p>
-                                    <p className="break-words">{finishing}</p>
-                                </div>
+                            <div className="w-[90%] leading-tight">
+                                <p className="font-bold break-words">{deskripsi}</p>
+                                <p className="break-words">{bahan?.name || 'Bahan Tidak Ditemukan'}</p>
+                                <p className="break-words">{ukuran} // {qty}</p>
+                                <p className="break-words">{finishing}</p>
                             </div>
                         </div>
                     );

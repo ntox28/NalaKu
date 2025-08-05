@@ -86,40 +86,35 @@ const Struk = forwardRef<HTMLDivElement, StrukProps>(({ order, customers, bahanL
         </div>
       <hr className="border-dashed border-black my-0.5"/>
       <div className="flex font-bold">
-            <div className="w-[50%] pr-1">Detail Pesanan</div>
-            <div className="w-[20%] text-center">Qty</div>
-            <div className="w-[30%] text-right">Total</div>
-      </div>
-      <hr className="border-dashed border-black my-0.5"/>
-      <div>
-        {order.items.map((item, index) => {
-          const bahan = bahanList.find(b => b.id === item.bahanId);
-          if (!bahan || !customer) return null;
-          
-          const hargaSatuan = getPriceForCustomer(bahan, customer.level);
-          const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
-          const jumlah = hargaSatuan * itemArea * item.qty;
+  <div className="w-[10%] pr-1">No.</div>
+  <div className="w-[60%] pr-1">Detail Pesanan</div>
+  <div className="w-[30%] text-right">Total</div>
+</div>
+<hr className="border-dashed border-black my-1" />
 
-          return (
-             <div key={item.id} className="py-0.5">
-                <div className="flex items-start">
-                    <div className="w-[50%] break-words pr-1">
-                        {index + 1}. {bahan.name}
-                    </div>
-                    <div className="w-[20%] text-center">{item.qty}</div>
-                    <div className="w-[30%] text-right">{formatCurrency(jumlah)}</div>
-                </div>
-                {(item.deskripsiPesanan || item.finishing || (item.panjang > 0 && item.lebar > 0)) && (
-                  <div className="text-[9px] text-gray-500 pl-3 leading-tight">
-                    {item.deskripsiPesanan && <div>- {item.deskripsiPesanan}</div>}
-                    {item.finishing && <div>- Finishing: {item.finishing}</div>}
-                    {item.panjang > 0 && item.lebar > 0 && <div>- Ukuran: {item.panjang}x{item.lebar}m</div>}
-                  </div>
-                )}
-            </div>
-          );
-        })}
+{order.items.map((item, index) => {
+  const bahan = bahanList.find(b => b.id === item.bahanId);
+  if (!bahan || !customer) return null;
+
+  const hargaSatuan = getPriceForCustomer(bahan, customer.level);
+  const itemArea = item.panjang > 0 && item.lebar > 0 ? item.panjang * item.lebar : 1;
+  const jumlah = hargaSatuan * itemArea * item.qty;
+  const ukuran = item.panjang > 0 && item.lebar > 0 ? `${item.panjang}mx${item.lebar}m` : null;
+
+  return (
+    <div key={item.id} className="flex items-start py-0.5">
+      <div className="w-[10%] pr-1">{index + 1}.</div>
+      <div className="w-[60%] pr-1 leading-tight break-words">
+        {item.deskripsiPesanan && <div>{item.deskripsiPesanan}</div>}
+        <div>{bahan.name}</div>
+        {ukuran && <div>{ukuran}</div>}
+        <div>{item.qty} Pcs</div>
       </div>
+      <div className="w-[30%] text-right">{formatCurrency(jumlah)}</div>
+    </div>
+  );
+})}
+
       <hr className="border-dashed border-black my-0.5"/>
       <div className="leading-tight">
           <div className="flex justify-between">

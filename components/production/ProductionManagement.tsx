@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Customer } from '../customers/CustomerManagement';
 import { Bahan } from '../bahan/BahanManagement';
@@ -10,7 +12,7 @@ import { useToast } from '../../hooks/useToast';
 
 interface ProductionManagementProps {
     orders: Order[];
-    onUpdate: (updatedOrders: Order[]) => void;
+    onUpdate: (updatedOrders: Order[] | ((orders: Order[]) => Order[])) => void;
     customers: Customer[];
     bahanList: Bahan[];
     loggedInUser: User;
@@ -52,6 +54,8 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
     const filteredOrders = useMemo(() => {
         return orders
             .filter(order => {
+                if (order.statusPesanan !== 'Proses') return false;
+                
                 const customerMatch = filters.customerId === 'all' || order.pelangganId === Number(filters.customerId);
                 const startDateMatch = !filters.startDate || order.tanggal >= filters.startDate;
                 const endDateMatch = !filters.endDate || order.tanggal <= filters.endDate;
@@ -120,24 +124,22 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
     };
     
     const handleTakeJob = (orderId: number) => {
-        const updatedOrders = orders.map(order => 
+        onUpdate(prevOrders => prevOrders.map(order => 
             order.id === orderId ? { ...order, pelaksanaId: loggedInUser.id } : order
-        );
-        onUpdate(updatedOrders);
+        ));
         addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah diambil.`, 'success');
     };
 
     const handleReleaseJob = (orderId: number) => {
-        const updatedOrders = orders.map(order => 
+        onUpdate(prevOrders => prevOrders.map(order => 
             order.id === orderId ? { ...order, pelaksanaId: null } : order
-        );
-        onUpdate(updatedOrders);
+        ));
         addToast(`Pekerjaan untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah dilepaskan.`, 'info');
     };
 
 
     const handleStatusChange = (orderId: number, itemId: number, newStatus: ProductionStatus) => {
-        const updatedOrders = orders.map(order => {
+        onUpdate(prevOrders => prevOrders.map(order => {
             if (order.id === orderId) {
                 const updatedItems = order.items.map(item => 
                     item.id === itemId ? { ...item, statusProduksi: newStatus } : item
@@ -145,8 +147,7 @@ const ProductionManagement: React.FC<ProductionManagementProps> = ({ orders, onU
                 return { ...order, items: updatedItems };
             }
             return order;
-        });
-        onUpdate(updatedOrders);
+        }));
         addToast(`Status item untuk Nota ${orders.find(o=>o.id === orderId)?.noNota} telah diubah menjadi ${newStatus}.`, 'info');
     };
 
