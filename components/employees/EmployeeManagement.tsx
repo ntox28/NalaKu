@@ -4,6 +4,7 @@ import TrashIcon from '../icons/TrashIcon';
 import Pagination from '../Pagination';
 import { useToast } from '../../hooks/useToast';
 import { User } from '../Login';
+import { supabase, employeeService, DatabaseEmployee } from '../../lib/supabase';
 
 export type EmployeePosition = 'Kasir' | 'Designer' | 'Sales' | 'Office' | 'Produksi' | 'Admin';
 
@@ -15,6 +16,21 @@ export interface Employee {
     phone: string;
 }
 
+// Convert between local and database employee formats
+const convertToLocalEmployee = (dbEmployee: DatabaseEmployee): Employee => ({
+    id: parseInt(dbEmployee.id.replace(/-/g, '').substring(0, 8), 16), // Convert UUID to number for compatibility
+    name: dbEmployee.nama,
+    position: dbEmployee.posisi as EmployeePosition,
+    email: dbEmployee.email,
+    phone: dbEmployee.telepon,
+});
+
+const convertToDatabaseEmployee = (employee: Omit<Employee, 'id'>): Omit<DatabaseEmployee, 'id' | 'created_at' | 'updated_at'> => ({
+    nama: employee.name,
+    posisi: employee.position,
+    email: employee.email,
+    telepon: employee.phone,
+});
 interface EmployeeManagementProps {
     employees: Employee[];
     onUpdate: (updatedEmployees: Employee[]) => void;
@@ -38,9 +54,33 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [formData, setFormData] = useState({ name: '', position: 'Kasir' as EmployeePosition, email: '', phone: '' });
+    const [isLoading, setIsLoading] = useState(false);
+    const [dbEmployees, setDbEmployees] = useState<DatabaseEmployee[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const { addToast } = useToast();
     const ITEMS_PER_PAGE = 10;
+
+    // Load employees from database on component mount
+    useEffect(() => {
+        loadEmployeesFromDatabase();
+    }, []);
+
+    const loadEmployeesFromDatabase = async () => {
+        try {
+            setIsLoading(true);
+            const dbEmployees = await employeeService.getAll();
+            setDbEmployees(dbEmployees);
+            
+            // Convert to local format for compatibility
+            const localEmployees = dbEmployees.map(convertToLocalEmployee);
+            onUpdate(localEmployees);
+        } catch (error) {
+            console.error('Error loading employees:', error);
+            addToast('Gagal memuat data karyawan dari database.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
     const currentEmployees = employees.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -76,8 +116,57 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
+        
+        try {
+            if (editingEmployee) {
+                // Find the database employee ID
+                const dbEmployee = dbEmployees.find(db => 
+                    convertToLocalEmployee(db).id === editingEmployee.id
+                );
+                
+                if (!dbEmployee) {
+                    throw new Error('Employee not found in database');
+                }
+
+                // Check if email already exists (excluding current employee)
+                const emailExists = await employeeService.emailExists(formData.email, dbEmployee.id);
+                if (emailExists) {
+                    addToast('Email sudah digunakan oleh karyawan lain.', 'error');
+                    return;
+                }
+
+                // Update in database
+                await employeeService.update(dbEmployee.id, convertToDatabaseEmployee(formData));
+                addToast('Karyawan berhasil diperbarui!', 'success');
+            } else {
+                // Check if email already exists
+                const emailExists = await employeeService.emailExists(formData.email);
+                if (emailExists) {
+                    addToast('Email sudah digunakan oleh karyawan lain.', 'error');
+                    return;
+                }
+
+                // Create in database
+                await employeeService.create(convertToDatabaseEmployee(formData));
+                addToast('Karyawan berhasil ditambahkan!', 'success');
+            }
+            
+            // Reload data from database
+            await loadEmployeesFromDatabase();
+            handleCloseModal();
+            
+        } catch (error) {
+            console.error('Error saving employee:', error);
+            addToast('Gagal menyimpan data karyawan.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteOld = (employeeId: number) => {
         if (editingEmployee) {
             onUpdate(employees.map(emp => emp.id === editingEmployee.id ? { ...emp, ...formData } : emp));
             addToast('Karyawan berhasil diperbarui!', 'success');
@@ -91,25 +180,47 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
         handleCloseModal();
     };
 
-    const handleDelete = (employeeId: number) => {
+    const handleDelete = async (employeeId: number) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus karyawan ini? Akun pengguna yang terhubung (jika ada) juga akan dihapus.')) {
-            // Delete associated user first
-            const associatedUser = users.find(u => u.employeeId === employeeId);
-            if (associatedUser) {
-                onUsersUpdate(users.filter(u => u.employeeId !== employeeId));
-            }
+            setIsLoading(true);
             
-            // Then delete employee
-            onUpdate(employees.filter(emp => emp.id !== employeeId));
-            
-            if (associatedUser) {
-                 addToast(`Karyawan dan akun pengguna '${associatedUser.id}' telah dihapus.`, 'success');
-            } else {
-                 addToast('Karyawan berhasil dihapus.', 'success');
-            }
+            try {
+                // Find the database employee ID
+                const dbEmployee = dbEmployees.find(db => 
+                    convertToLocalEmployee(db).id === employeeId
+                );
+                
+                if (!dbEmployee) {
+                    throw new Error('Employee not found in database');
+                }
 
-             if (currentEmployees.length === 1 && currentPage > 1) {
-                setCurrentPage(currentPage - 1);
+                // Delete associated user first
+                const associatedUser = users.find(u => u.employeeId === employeeId);
+                if (associatedUser) {
+                    onUsersUpdate(users.filter(u => u.employeeId !== employeeId));
+                }
+                
+                // Delete from database
+                await employeeService.delete(dbEmployee.id);
+                
+                // Reload data from database
+                await loadEmployeesFromDatabase();
+                
+                if (associatedUser) {
+                    addToast(`Karyawan dan akun pengguna '${associatedUser.id}' telah dihapus.`, 'success');
+                } else {
+                    addToast('Karyawan berhasil dihapus.', 'success');
+                }
+
+                if (currentEmployees.length === 1 && currentPage > 1) {
+                    setCurrentPage(currentPage - 1);
+                }
+                
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+                addToast('Gagal menghapus karyawan.', 'error');
+            } finally {
+                setIsLoading(false);
             }
         }
     };
@@ -120,9 +231,10 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Manajemen Karyawan</h2>
                 <button
                     onClick={() => handleOpenModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center"
+                    disabled={isLoading}
+                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center disabled:bg-orange-300 disabled:cursor-not-allowed"
                 >
-                    Tambah
+                    {isLoading ? 'Loading...' : 'Tambah'}
                 </button>
             </div>
             <div className="flex-1 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
@@ -151,7 +263,11 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
                                     <button onClick={() => handleOpenModal(employee)} className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 transition-colors p-1">
                                         <EditIcon className="w-5 h-5" />
                                     </button>
-                                    <button onClick={() => handleDelete(employee.id)} className="text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors p-1">
+                                    <button 
+                                        onClick={() => handleDelete(employee.id)} 
+                                        disabled={isLoading}
+                                        className="text-red-600 hover:text-red-500 dark:text-red-500 dark:hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
                                         <TrashIcon className="w-5 h-5" />
                                     </button>
                                 </td>
@@ -207,7 +323,13 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ employees, onUp
                                 </div>
                                 <div className="flex justify-end space-x-4 pt-4 flex-shrink-0">
                                     <button type="button" onClick={handleCloseModal} className="px-6 py-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                                    <button type="submit" className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors">{editingEmployee ? 'Simpan Perubahan' : 'Simpan'}</button>
+                                    <button 
+                                        type="submit" 
+                                        disabled={isLoading}
+                                        className="px-6 py-2 rounded-lg text-white bg-orange-600 hover:bg-orange-700 transition-colors disabled:bg-orange-300 disabled:cursor-not-allowed"
+                                    >
+                                        {isLoading ? 'Menyimpan...' : (editingEmployee ? 'Simpan Perubahan' : 'Simpan')}
+                                    </button>
                                 </div>
                             </form>
                         </div>
